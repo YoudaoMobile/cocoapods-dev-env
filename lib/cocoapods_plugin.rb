@@ -1,24 +1,19 @@
 Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
     podfile = installer.podfile
-    puts "XXXXXXXXXXXXXXXXXXX"
-    puts installer.instance_variables
-
-
+    #puts installer.instance_variables
 end
 
 Pod::HooksManager.register('cocoapods-dev-env', :post_install) do |installer|
-    puts "BBBBBBBBBBBBBBBBBBBB"
-    puts installer.instance_variables
+    #puts installer.instance_variables
 end
 
 
 $processedPodsState = Hash.new
-puts "初始化processedPodState完成"
 
 module Pod
     class DevEnv
         def self.keyword
-            :dev_env
+            :dev_env # 'dev'/'beta'/'release'
         end
     end
 class Podfile
@@ -28,19 +23,19 @@ class Podfile
         def parse_pod_dev_env(name, requirements)
             options = requirements.last
             pod_name = Specification.root_name(name)
-            is_dev = $processedPodsState[pod_name]
-            UI.puts "!!!!!!!####### proccess for dev-env #{pod_name} :\n #{options}"
+            dev_env = $processedPodsState[pod_name]
             if options.is_a?(Hash)
-                if is_dev == nil
+                if dev_env == nil
                     if options[Pod::DevEnv::keyword] != nil 
-                        is_dev = options.delete(Pod::DevEnv::keyword)
-                        $processedPodsState[pod_name] = is_dev
+                        dev_env = options.delete(Pod::DevEnv::keyword)
+                        $processedPodsState[pod_name] = dev_env
                     else
                         options.delete(Pod::DevEnv::keyword)
                         return
                     end
                 end
-                if is_dev == 'dev'
+                UI.puts "####### proccess dev-env for pod #{pod_name} env: #{dev_env}"
+                if dev_env == 'dev' 
                     git = options.delete(:git)
                     branch = options.delete(:branch)
                     path = "./developing_pods/#{pod_name}"
@@ -48,7 +43,7 @@ class Podfile
                         `git submodule add -b #{branch} #{git} #{path}`
                     end
                     options[:path] = path
-                    UI.puts "!!!!!!!####### enable dev-mode"
+                    UI.puts "####### enable dev-mode for #{pod_name}"
                 else
                     # 移除有可能误删往提交的内容，需要谨慎处理
                     #`git rm #{path}`
