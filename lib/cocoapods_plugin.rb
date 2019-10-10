@@ -18,7 +18,7 @@ puts "初始化processedPodState完成"
 module Pod
     class DevEnv
         def self.keyword
-            :is_dev
+            :dev_env
         end
     end
 class Podfile
@@ -40,7 +40,7 @@ class Podfile
                         return
                     end
                 end
-                if is_dev
+                if is_dev == 'dev'
                     git = options.delete(:git)
                     branch = options.delete(:branch)
                     path = "./developing_pods/#{pod_name}"
