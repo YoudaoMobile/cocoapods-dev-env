@@ -11,6 +11,10 @@ Pod::HooksManager.register('cocoapods-dev-env', :post_install) do |installer|
     puts installer.instance_variables
 end
 
+
+$processedPodsState = Hash.new
+puts "初始化processedPodState完成"
+
 module Pod
     class DevEnv
         def self.keyword
@@ -20,13 +24,22 @@ module Pod
 class Podfile
     class TargetDefinition
 
-      ## --- option for setting using prebuild framework ---
-      def parse_pod_dev_env(name, requirements)
-          options = requirements.last
-          pod_name = Specification.root_name(name)
-          UI.puts "!!!!!!!####### proccess for dev-env #{pod_name} :\n #{options}"
-            if options.is_a?(Hash) && options[Pod::DevEnv::keyword] != nil 
-                is_dev = options.delete(Pod::DevEnv::keyword)
+        ## --- option for setting using prebuild framework ---
+        def parse_pod_dev_env(name, requirements)
+            options = requirements.last
+            pod_name = Specification.root_name(name)
+            is_dev = $processedPodsState[pod_name]
+            UI.puts "!!!!!!!####### proccess for dev-env #{pod_name} :\n #{options}"
+            if options.is_a?(Hash)
+                if is_dev == nil
+                    if options[Pod::DevEnv::keyword] != nil 
+                        is_dev = options.delete(Pod::DevEnv::keyword)
+                        $processedPodsState[pod_name] = is_dev
+                    else
+                        options.delete(Pod::DevEnv::keyword)
+                        return
+                    end
+                end
                 if is_dev
                     git = options.delete(:git)
                     branch = options.delete(:branch)
@@ -42,8 +55,7 @@ class Podfile
                 end
                 requirements.pop if options.empty?
             end
-      end
-
+        end
       # ---- patch method ----
         # We want modify `store_pod` method, but it's hard to insert a line in the 
         # implementation. So we patch a method called in `store_pod`.
