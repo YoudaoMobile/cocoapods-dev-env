@@ -9,6 +9,7 @@ end
 
 
 $processedPodsState = Hash.new
+$processedPodsOptions = Hash.new
 
 module Pod
     class DevEnv
@@ -22,18 +23,23 @@ class Podfile
         def parse_pod_dev_env(name, requirements)
             options = requirements.last
             pod_name = Specification.root_name(name)
-            dev_env = $processedPodsState[pod_name]
+            last_options = $processedPodsOptions[pod_name]
+            if (last_options != nil)
+                UI.puts "####### #{name} use last_options: #{last_options}"
+                if options != nil && options.is_a?(Hash)
+                    requirements[requirements.length - 1] = last_options
+                else
+                    requirements.push(last_options)
+                end 
+                
+                return
+            end
             if options.is_a?(Hash)
-                if dev_env == nil
-                    if options[Pod::DevEnv::keyword] != nil 
-                        dev_env = options.delete(Pod::DevEnv::keyword)
-                        $processedPodsState[pod_name] = dev_env
-                    else
-                        options.delete(Pod::DevEnv::keyword)
-                        return
-                    end
+                dev_env = options.delete(Pod::DevEnv::keyword)
+                if dev_env == nil 
+                    return
                 end
-                UI.puts "####### proccess dev-env for pod #{pod_name} env: #{dev_env}"
+                UI.puts "####### proccess dev-env for pod #{name} env: #{dev_env}"
                 git = options.delete(:git)
                 branch = options.delete(:branch)
                 tag = options.delete(:tag)
@@ -49,6 +55,7 @@ class Podfile
                         Dir.chdir(path)
                         headCommitID = `git rev-parse HEAD`
                         tagCommitID = `git rev-parse #{tag}`
+                        Dir.chdir(currentDir)
                         if headCommitID.length > 0 && headCommitID == tagCommitID
                         else
                             raise "#{pod_name} branch:#{branch} 与 tag:#{tag} 内容不同步，请自行确认所用分支和tag后重新 install"
@@ -59,8 +66,15 @@ class Podfile
                     UI.puts "####### enabled dev-mode for #{pod_name}"
                 elsif dev_env == 'beta'
                     # Beta模式，使用tag引用远端git库的代码
-                    if !File.directory?(path)
+                    if File.directory?(path)
                         # 从Dev模式刚刚切换过来，需要打tag并且push
+                        UI.puts "####### gen beta env for #{pod_name}"
+                        if tag == nil || tag.length == 0 
+                            raise "#{pod_name} 未定义tag"
+                        end
+                        tag = "#{tag}_beta"
+                        currentDir = Dir.pwd
+                        Dir.chdir(path)
                         output = `git status -s`
                         puts output
                         if output.length == 0
@@ -69,12 +83,10 @@ class Podfile
                                 ret = system("git push")
                                 if ret != true
                                     raise "#{pod_name} push 失败"
-                                    return
                                 end
                             end
                         else
                             raise "有未提交的数据"
-                            return
                         end
                         ## TODO:: 检查tag版本号与podspec里的版本号是否一致
                         ret = system("git tag #{tag}")
@@ -85,8 +97,8 @@ class Podfile
                             end
                         else
                             raise "#{pod_name} tag:#{tag} 已存在, 请确认已经手动修改tag版本号"
-                            return
                         end
+                        Dir.chdir(currentDir)
                         `git rm #{path}`
                     end
                     options[:git] = git
@@ -95,7 +107,10 @@ class Podfile
                 elsif dev_env == 'release'
                     # Release模式，直接使用远端对应的版本
                     # 需要考虑从dev直接跳跃到release的情况，需要谨慎处理，给予报错或执行两次的操作
+                else
+                    raise ":dev_env 必须要设置成 dev/beta/release之一，不接受其他值"
                 end
+                $processedPodsOptions[pod_name] = options
                 requirements.pop if options.empty?
             end
         end
