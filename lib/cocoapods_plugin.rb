@@ -18,7 +18,6 @@ module Pod
     end
 class Podfile
     class TargetDefinition
-
         ## --- option for setting using prebuild framework ---
         def parse_pod_dev_env(name, requirements)
             options = requirements.last
@@ -35,18 +34,67 @@ class Podfile
                     end
                 end
                 UI.puts "####### proccess dev-env for pod #{pod_name} env: #{dev_env}"
-                if dev_env == 'dev' 
-                    git = options.delete(:git)
-                    branch = options.delete(:branch)
+                git = options.delete(:git)
+                branch = options.delete(:branch)
+                tag = options.delete(:tag)
+                path = options.delete(:path)
+                if path == nil 
                     path = "./developing_pods/#{pod_name}"
+                end
+                if dev_env == 'dev' 
+                    # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
                         `git submodule add -b #{branch} #{git} #{path}`
+                        currentDir = Dir.pwd
+                        Dir.chdir(path)
+                        headCommitID = `git rev-parse HEAD`
+                        tagCommitID = `git rev-parse #{tag}`
+                        if headCommitID.length > 0 && headCommitID == tagCommitID
+                        else
+                            raise "#{pod_name} branch:#{branch} 与 tag:#{tag} 内容不同步，请自行确认所用分支和tag后重新 install"
+                            return
+                        end
                     end
                     options[:path] = path
-                    UI.puts "####### enable dev-mode for #{pod_name}"
-                else
-                    # 移除有可能误删往提交的内容，需要谨慎处理
-                    #`git rm #{path}`
+                    UI.puts "####### enabled dev-mode for #{pod_name}"
+                elseif dev_env == 'beta'
+                    # Beta模式，使用tag引用远端git库的代码
+                    if !File.directory?(path)
+                        # 从Dev模式刚刚切换过来，需要打tag并且push
+                        output = `git status -s`
+                        puts output
+                        if output.length == 0
+                            output = `git status`
+                            if output.include?("push")
+                                ret = system("git push")
+                                if ret != true
+                                    raise "#{pod_name} push 失败"
+                                    return
+                                end
+                            end
+                        else
+                            raise "有未提交的数据"
+                            return
+                        end
+                        ## TODO:: 检查tag版本号与podspec里的版本号是否一致
+                        ret = system("git tag #{tag}")
+                        if ret == true
+                            ret = system("git push origin #{tag}")
+                            if ret != true
+                                raise "#{pod_name} push tag 失败"
+                            end
+                        else
+                            raise "#{pod_name} tag:#{tag} 已存在, 请确认已经手动修改tag版本号"
+                            return
+                        end
+                        `git rm #{path}`
+                    end
+                    options[:git] = git
+                    options[:tag] = tag
+                    UI.puts "####### enabled beta-mode for #{pod_name}"
+                elseif dev_env == 'release'
+                    # Release模式，直接使用远端对应的版本
+                    # 需要考虑从dev直接跳跃到release的情况，需要谨慎处理，给予报错或执行两次的操作
                 end
                 requirements.pop if options.empty?
             end
