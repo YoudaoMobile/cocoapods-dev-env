@@ -57,7 +57,7 @@ class Podfile
                     end
                     options[:path] = path
                     UI.puts "####### enabled dev-mode for #{pod_name}"
-                elseif dev_env == 'beta'
+                elsif dev_env == 'beta'
                     # Beta模式，使用tag引用远端git库的代码
                     if !File.directory?(path)
                         # 从Dev模式刚刚切换过来，需要打tag并且push
@@ -92,7 +92,7 @@ class Podfile
                     options[:git] = git
                     options[:tag] = tag
                     UI.puts "####### enabled beta-mode for #{pod_name}"
-                elseif dev_env == 'release'
+                elsif dev_env == 'release'
                     # Release模式，直接使用远端对应的版本
                     # 需要考虑从dev直接跳跃到release的情况，需要谨慎处理，给予报错或执行两次的操作
                 end
