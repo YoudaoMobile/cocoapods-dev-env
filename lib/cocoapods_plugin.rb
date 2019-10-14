@@ -46,7 +46,7 @@ class Podfile
             Dir.chdir(path)
             headCommitID = `git rev-parse HEAD`
             tagCommitID = `git rev-parse #{branchOrTag}`
-            UI.puts headCommitID
+            UI.puts "#{`pwd`}  headCommitID:#{headCommitID} \n #{branchOrTag}ComitID:#{tagCommitID}"
             Dir.chdir(currentDir)
             return (headCommitID.length > 0 && headCommitID == tagCommitID)
         end
@@ -93,13 +93,13 @@ class Podfile
                     UI.puts "####### enabled dev-mode for #{pod_name}"
                 elsif dev_env == 'beta'
                     # Beta模式，使用tag引用远端git库的代码
+                    tag = "#{tag}_beta"
                     if File.directory?(path)
                         # 从Dev模式刚刚切换过来，需要打tag并且push
                         UI.puts "####### gen beta env for #{pod_name}"
                         if tag == nil || tag.length == 0 
                             raise "#{pod_name} 未定义tag"
                         end
-                        tag = "#{tag}_beta"
                         currentDir = Dir.pwd
                         Dir.chdir(path)
                         output = `git status -s`
