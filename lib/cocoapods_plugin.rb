@@ -19,6 +19,38 @@ module Pod
     end
 class Podfile
     class TargetDefinition
+
+        def checkAndRemoveSubmodule(path)
+            currentDir = Dir.pwd
+            Dir.chdir(path)
+            output = `git status -s`
+            puts output
+            if output.length == 0
+                output = `git status`
+                if output.include?("push")
+                    raise "submodule #{path} 移除失败，有推送的修改"
+                end
+            else
+                raise "submodule #{path} 移除失败，有未提交的修改"
+            end
+            Dir.chdir(currentDir)
+            `
+            git submodule deinit #{path}
+            rm -rf #{path}
+            git rm #{path}
+            `
+        end
+
+        def checkTagOrBranchIsEqalToHead(branchOrTag, path)
+            currentDir = Dir.pwd
+            Dir.chdir(path)
+            headCommitID = `git rev-parse HEAD`
+            tagCommitID = `git rev-parse #{branchOrTag}`
+            UI.puts headCommitID
+            Dir.chdir(currentDir)
+            return (headCommitID.length > 0 && headCommitID == tagCommitID)
+        end
+
         ## --- option for setting using prebuild framework ---
         def parse_pod_dev_env(name, requirements)
             options = requirements.last
@@ -50,16 +82,11 @@ class Podfile
                 if dev_env == 'dev' 
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
-                        `git submodule add -b #{branch} #{git} #{path}`
-                        currentDir = Dir.pwd
-                        Dir.chdir(path)
-                        headCommitID = `git rev-parse HEAD`
-                        tagCommitID = `git rev-parse #{tag}`
-                        Dir.chdir(currentDir)
-                        if headCommitID.length > 0 && headCommitID == tagCommitID
-                        else
+                        UI.puts "####### add submodule for #{pod_name}"
+                        `git submodule add --force -b #{branch} #{git} #{path}`
+                        
+                        if !checkTagOrBranchIsEqalToHead(tag, path)
                             raise "#{pod_name} branch:#{branch} 与 tag:#{tag} 内容不同步，请自行确认所用分支和tag后重新 install"
-                            return
                         end
                     end
                     options[:path] = path
@@ -96,10 +123,14 @@ class Podfile
                                 raise "#{pod_name} push tag 失败"
                             end
                         else
-                            raise "#{pod_name} tag:#{tag} 已存在, 请确认已经手动修改tag版本号"
+                            if checkTagOrBranchIsEqalToHead(tag, "./")
+                                UI.puts "#{pod_name} 没做任何调整，切换回beta"
+                            else
+                                raise "#{pod_name} tag:#{tag} 已存在, 请确认已经手动修改tag版本号"
+                            end
                         end
                         Dir.chdir(currentDir)
-                        `git rm #{path}`
+                        checkAndRemoveSubmodule(path)
                     end
                     options[:git] = git
                     options[:tag] = tag
