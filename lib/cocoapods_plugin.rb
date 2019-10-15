@@ -85,11 +85,14 @@ class Podfile
                         UI.puts "####### add submodule for #{pod_name}"
                         `git submodule add --force -b #{branch} #{git} #{path}`
                         
-                        if !checkTagOrBranchIsEqalToHead(tag, path)
-                            raise "#{pod_name} branch:#{branch} 与 tag:#{tag} 内容不同步，请自行确认所用分支和tag后重新 install"
+                        if !checkTagOrBranchIsEqalToHead(tag, path) && !checkTagOrBranchIsEqalToHead("#{tag}_beta", path)
+                            raise "#{pod_name} branch:#{branch} 与 tag:#{tag}[_beta] 内容不同步，请自行确认所用分支和tag后重新执行 pod install"
                         end
                     end
                     options[:path] = path
+                    if requirements.length >= 2
+                        requirements.delete_at(0)
+                    end
                     UI.puts "####### enabled dev-mode for #{pod_name}"
                 elsif dev_env == 'beta'
                     # Beta模式，使用tag引用远端git库的代码
@@ -134,10 +137,16 @@ class Podfile
                     end
                     options[:git] = git
                     options[:tag] = tag
+                    if requirements.length >= 2
+                        requirements.delete_at(0)
+                    end
                     UI.puts "####### enabled beta-mode for #{pod_name}"
                 elsif dev_env == 'release'
                     # Release模式，直接使用远端对应的版本
                     # 需要考虑从dev直接跳跃到release的情况，需要谨慎处理，给予报错或执行两次的操作
+                    if File.directory?(path)
+                        checkAndRemoveSubmodule(path)
+                    end
                 else
                     raise ":dev_env 必须要设置成 dev/beta/release之一，不接受其他值"
                 end
