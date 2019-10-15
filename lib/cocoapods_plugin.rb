@@ -41,6 +41,15 @@ class Podfile
             `
         end
 
+        def checkTagIsEqualToHead(tag, path)
+            currentDir = Dir.pwd
+            Dir.chdir(path)
+            result = `git describe --abbrev=4 HEAD`
+            Dir.chdir(currentDir)
+            return result.include?(tag)
+        end
+
+# 这个函数有问题有时候拿不到相同的commit id
         def checkTagOrBranchIsEqalToHead(branchOrTag, path)
             currentDir = Dir.pwd
             Dir.chdir(path)
@@ -85,7 +94,7 @@ class Podfile
                         UI.puts "####### add submodule for #{pod_name}"
                         `git submodule add --force -b #{branch} #{git} #{path}`
                         
-                        if !checkTagOrBranchIsEqalToHead(tag, path) && !checkTagOrBranchIsEqalToHead("#{tag}_beta", path)
+                        if !checkTagIsEqualToHead(tag, path) && !checkTagIsEqualToHead("#{tag}_beta", path)
                             raise "#{pod_name} branch:#{branch} 与 tag:#{tag}[_beta] 内容不同步，请自行确认所用分支和tag后重新执行 pod install"
                         end
                     end
