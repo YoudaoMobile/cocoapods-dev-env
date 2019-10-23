@@ -16,6 +16,7 @@ module Pod
         def self.keyword
             :dev_env # 'dev'/'beta'/'release'
         end
+        puts "🎉 plugin cocoapods-dev-env loaded 🎉".green
     end
 class Podfile
     class TargetDefinition
@@ -66,7 +67,7 @@ class Podfile
             pod_name = Specification.root_name(name)
             last_options = $processedPodsOptions[pod_name]
             if (last_options != nil)
-                UI.puts "####### #{name} use last_options: #{last_options}"
+                UI.message "#{name.green} use last_options: #{last_options.to_s.green}"
                 if options != nil && options.is_a?(Hash)
                     requirements[requirements.length - 1] = last_options
                 else
@@ -80,7 +81,7 @@ class Podfile
                 if dev_env == nil 
                     return
                 end
-                UI.puts "####### proccess dev-env for pod #{name} env: #{dev_env}"
+                UI.message "pod #{name.green} dev-env: #{dev_env.green}"
                 git = options.delete(:git)
                 branch = options.delete(:branch)
                 tag = options.delete(:tag)
@@ -91,26 +92,26 @@ class Podfile
                 if dev_env == 'dev' 
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
-                        UI.puts "####### add submodule for #{pod_name}"
+                        UI.puts "add submodule for #{pod_name.green}".yellow
                         `git submodule add --force -b #{branch} #{git} #{path}`
                         
                         if !checkTagIsEqualToHead(tag, path) && !checkTagIsEqualToHead("#{tag}_beta", path)
-                            raise "#{pod_name} branch:#{branch} 与 tag:#{tag}[_beta] 内容不同步，请自行确认所用分支和tag后重新执行 pod install"
+                            raise "💔 #{pod_name.yellow} branch:#{branch.yellow} 与 tag:#{tag.yellow}[_beta] 内容不同步，请自行确认所用分支和tag后重新执行 pod install"
                         end
                     end
                     options[:path] = path
                     if requirements.length >= 2
                         requirements.delete_at(0)
                     end
-                    UI.puts "####### enabled dev-mode for #{pod_name}"
+                    UI.message "enabled #{"dev".green}-mode for #{pod_name.green}"
                 elsif dev_env == 'beta'
                     # Beta模式，使用tag引用远端git库的代码
                     tag = "#{tag}_beta"
                     if File.directory?(path)
                         # 从Dev模式刚刚切换过来，需要打tag并且push
-                        UI.puts "####### gen beta env for #{pod_name}"
+                        UI.puts "gen beta env for #{pod_name.green}".yellow
                         if tag == nil || tag.length == 0 
-                            raise "#{pod_name} 未定义tag"
+                            raise "💔 #{pod_name.yellow} 未定义tag"
                         end
                         currentDir = Dir.pwd
                         Dir.chdir(path)
@@ -121,7 +122,7 @@ class Podfile
                             if output.include?("push")
                                 ret = system("git push")
                                 if ret != true
-                                    raise "#{pod_name} push 失败"
+                                    raise "💔 #{pod_name.yellow} push 失败"
                                 end
                             end
                         else
@@ -132,13 +133,13 @@ class Podfile
                         if ret == true
                             ret = system("git push origin #{tag}")
                             if ret != true
-                                raise "#{pod_name} push tag 失败"
+                                raise "💔 #{pod_name.yellow} push tag 失败"
                             end
                         else
                             if checkTagOrBranchIsEqalToHead(tag, "./")
-                                UI.puts "#{pod_name} 没做任何调整，切换回beta"
+                                UI.message "#{pod_name.green} 没做任何调整，切换回beta"
                             else
-                                raise "#{pod_name} tag:#{tag} 已存在, 请确认已经手动修改tag版本号"
+                                raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
                             end
                         end
                         Dir.chdir(currentDir)
@@ -149,15 +150,22 @@ class Podfile
                     if requirements.length >= 2
                         requirements.delete_at(0)
                     end
-                    UI.puts "####### enabled beta-mode for #{pod_name}"
+                    UI.message "enabled #{"beta".green}-mode for #{pod_name.green}"
                 elsif dev_env == 'release'
                     # Release模式，直接使用远端对应的版本
-                    # 需要考虑从dev直接跳跃到release的情况，需要谨慎处理，给予报错或执行两次的操作
                     if File.directory?(path)
+                        if tag == nil || tag.length == 0 
+                            raise "💔 #{pod_name.yellow} 未定义tag"
+                        end
+                        currentDir = Dir.pwd
+                        Dir.chdir(path)
+                        
+                        Dir.chdir(currentDir)
                         checkAndRemoveSubmodule(path)
                     end
+                    UI.message "enabled #{"release".green}-mode for #{pod_name.green}"
                 else
-                    raise ":dev_env 必须要设置成 dev/beta/release之一，不接受其他值"
+                    raise "💔 :dev_env 必须要设置成 dev/beta/release之一，不接受其他值"
                 end
                 $processedPodsOptions[pod_name] = options
                 requirements.pop if options.empty?

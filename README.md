@@ -54,6 +54,11 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/YoudaoMobile/cocoapods-dev-env. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
 
+1. How to develop: put gem in your project and exec `bundle exec pod install`
+2. How to packagae: `rake build` 
+3. How to release: `rake release` or `gem push ./pkg/cocoapods-dev-env-0.2.2.gem` 
+
+
 ## License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
