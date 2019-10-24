@@ -1,6 +1,11 @@
 Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
     podfile = installer.podfile
     #puts installer.instance_variables
+    # forbidden submodule not cloned
+    `
+    git submodule init
+    git submodule update
+    `
 end
 
 Pod::HooksManager.register('cocoapods-dev-env', :post_install) do |installer|
@@ -61,6 +66,33 @@ class Podfile
             return (headCommitID.length > 0 && headCommitID == tagCommitID)
         end
 
+        def checkGitStatusAndPush(pod_name)
+            output = `git status -s`
+            puts output
+            if output.length == 0
+                output = `git status`
+                if output.include?("push")
+                    ret = system("git push")
+                    if ret != true
+                        raise "💔 #{pod_name.yellow} push 失败"
+                    end
+                end
+            else
+                raise "💔 #{pod_name.yellow} 有未提交的数据"
+            end
+        end
+
+        def addGitTagAndPush(tag, pod_name)
+            ret = system("git tag #{tag}")
+            if ret == true
+                ret = system("git push origin #{tag}")
+                if ret != true
+                    raise "💔 #{pod_name.yellow} push tag 失败"
+                end
+            end
+            return ret
+        end
+
         ## --- option for setting using prebuild framework ---
         def parse_pod_dev_env(name, requirements)
             options = requirements.last
@@ -89,6 +121,15 @@ class Podfile
                 if path == nil 
                     path = "./developing_pods/#{pod_name}"
                 end
+                if git == nil || git.length == 0 
+                    raise "💔 #{pod_name.yellow} 未定义:git => 'xxx'库地址"
+                end
+                if branch == nil || branch.length == 0 
+                    raise "💔 #{pod_name.yellow} 未定义:branch => 'xxx'"
+                end
+                if tag == nil || tag.length == 0 
+                    raise "💔 #{pod_name.yellow} 未定义:tag => 'xxx', tag 将会作为 dev模式下载最新代码检查的依据，beta模式引用的tag 以及 release模式引用的版本号"
+                end
                 if dev_env == 'dev' 
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
@@ -109,35 +150,15 @@ class Podfile
                     tag = "#{tag}_beta"
                     if File.directory?(path)
                         # 从Dev模式刚刚切换过来，需要打tag并且push
-                        UI.puts "gen beta env for #{pod_name.green}".yellow
-                        if tag == nil || tag.length == 0 
-                            raise "💔 #{pod_name.yellow} 未定义tag"
-                        end
+                        UI.puts "release beta-version for #{pod_name.green}".yellow
                         currentDir = Dir.pwd
                         Dir.chdir(path)
-                        output = `git status -s`
-                        puts output
-                        if output.length == 0
-                            output = `git status`
-                            if output.include?("push")
-                                ret = system("git push")
-                                if ret != true
-                                    raise "💔 #{pod_name.yellow} push 失败"
-                                end
-                            end
-                        else
-                            raise "有未提交的数据"
-                        end
+                        checkGitStatusAndPush(pod_name)
                         ## TODO:: 检查tag版本号与podspec里的版本号是否一致
-                        ret = system("git tag #{tag}")
-                        if ret == true
-                            ret = system("git push origin #{tag}")
-                            if ret != true
-                                raise "💔 #{pod_name.yellow} push tag 失败"
-                            end
-                        else
+                        ret = addGitTagAndPush(tag, pod_name)
+                        if ret != true
                             if checkTagOrBranchIsEqalToHead(tag, "./")
-                                UI.message "#{pod_name.green} 没做任何调整，切换回beta"
+                                UI.puts "#{pod_name.green} 没做任何调整，切换回beta"
                             else
                                 raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
                             end
@@ -154,14 +175,31 @@ class Podfile
                 elsif dev_env == 'release'
                     # Release模式，直接使用远端对应的版本
                     if File.directory?(path)
-                        if tag == nil || tag.length == 0 
-                            raise "💔 #{pod_name.yellow} 未定义tag"
-                        end
+                        UI.puts "release release-version for #{pod_name.green}".yellow
                         currentDir = Dir.pwd
                         Dir.chdir(path)
-                        
+                        ret = system("pod lib lint")
+                        checkGitStatusAndPush(pod_name)
+                        ## TODO:: 检查tag版本号与podspec里的版本号是否一致
+                        ret = addGitTagAndPush(tag, pod_name)
+                        if ret == true
+                            ## TODO:: 发布到的目标库名称需要用变量设置
+                            if system("pod repo push YDRepo #{pod_name}.podspec") == false
+                                raise "💔 #{pod_name.yellow} 发布失败"
+                            end
+                            `pod repo update YDRepo`
+                        else
+                            if checkTagOrBranchIsEqalToHead(tag, "./")
+                                UI.puts "#{pod_name.green} 没做任何调整，切换回beta"
+                            else
+                                raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
+                            end
+                        end
                         Dir.chdir(currentDir)
                         checkAndRemoveSubmodule(path)
+                    end
+                    if requirements.length < 2
+                        requirements.insert(0, "#{tag}")
                     end
                     UI.message "enabled #{"release".green}-mode for #{pod_name.green}"
                 else
