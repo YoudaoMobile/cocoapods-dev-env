@@ -2,9 +2,9 @@ Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
     podfile = installer.podfile
     #puts installer.instance_variables
     # forbidden submodule not cloned
-    #`
-    #git submodule update --init --recursive
-    #`
+    `
+    git submodule update --init --recursive
+    `
 end
 
 Pod::HooksManager.register('cocoapods-dev-env', :post_install) do |installer|
@@ -51,7 +51,11 @@ class Podfile
             Dir.chdir(path)
             result = `git describe --abbrev=4 HEAD`
             Dir.chdir(currentDir)
-            return result.include?(tag)
+            if result.include?(tag)
+                return true
+            else
+                return checkTagOrBranchIsEqalToHead(tag, path)
+            end
         end
 
 # 这个函数有问题有时候拿不到相同的commit id
