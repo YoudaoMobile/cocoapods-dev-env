@@ -2,10 +2,9 @@ Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
     podfile = installer.podfile
     #puts installer.instance_variables
     # forbidden submodule not cloned
-    `
-    git submodule init
-    git submodule update
-    `
+    #`
+    #git submodule update --init --recursive
+    #`
 end
 
 Pod::HooksManager.register('cocoapods-dev-env', :post_install) do |installer|
@@ -93,6 +92,35 @@ class Podfile
             return ret
         end
 
+        def inputNeedJumpForReson(str)
+            puts str
+            puts '是(Y), 否(N)'
+            input = STDIN.gets
+            if input[0,1] == "Y"
+                return true
+            else
+                return false
+            end
+        end
+
+        def getUserRepoAddress()
+            if podfile.sources.size == 0
+                raise "💔 发布release必须配置仓库的地址, e.g.: source 'https://github.com/CocoaPods/Specs.git'"
+            end
+            index = nil
+            begin
+                UI.puts  "\n\n⌨️  请输入要发布到的cocoapods仓库序号, 按回车确认: ".yellow
+                num = 1
+                podfile.sources.each do |source|
+                    UI.puts "#{num.to_s.yellow}. #{source.green}"
+                    num += 1
+                end
+                index = STDIN.gets.to_i - 1
+            end until (index >= 0 && index < podfile.sources.size)
+            source = podfile.sources[index]
+            return source
+        end
+
         ## --- option for setting using prebuild framework ---
         def parse_pod_dev_env(name, requirements)
             options = requirements.last
@@ -134,6 +162,7 @@ class Podfile
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
                         UI.puts "add submodule for #{pod_name.green}".yellow
+                        # TODO 这个命令要想办法展示实际报错信息
                         `git submodule add --force -b #{branch} #{git} #{path}`
                         
                         if !checkTagIsEqualToHead(tag, path) && !checkTagIsEqualToHead("#{tag}_beta", path)
@@ -160,7 +189,9 @@ class Podfile
                             if checkTagOrBranchIsEqalToHead(tag, "./")
                                 UI.puts "#{pod_name.green} 没做任何调整，切换回beta"
                             else
-                                raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
+                                if !inputNeedJumpForReson("是否跳过beta发布并删除本地submodule(直接引用远端库)")
+                                    raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
+                                end
                             end
                         end
                         Dir.chdir(currentDir)
@@ -178,23 +209,29 @@ class Podfile
                         UI.puts "release release-version for #{pod_name.green}".yellow
                         currentDir = Dir.pwd
                         Dir.chdir(path)
-                        ret = system("pod lib lint")
+                        ret = system("pod lib lint --allow-warnings")
+                        if ret != true
+                            raise "💔 #{pod_name.yellow} lint 失败"
+                        end
                         checkGitStatusAndPush(pod_name)
                         ## TODO:: 检查tag版本号与podspec里的版本号是否一致
                         ret = addGitTagAndPush(tag, pod_name)
-                        if ret == true
-                            ## TODO:: 发布到的目标库名称需要用变量设置
-                            if system("pod repo push YDRepo #{pod_name}.podspec") == false
-                                raise "💔 #{pod_name.yellow} 发布失败"
-                            end
-                            `pod repo update YDRepo`
-                        else
+                        if ret == false
                             if checkTagOrBranchIsEqalToHead(tag, "./")
-                                UI.puts "#{pod_name.green} 没做任何调整，切换回beta"
+                                UI.puts "#{pod_name.green} 已经打过tag".yellow
                             else
                                 raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
                             end
                         end
+                        ## TODO:: 发布到的目标库名称需要用变量设置
+                        repoAddrs = getUserRepoAddress()
+                        cmd = "pod repo push #{repoAddrs} #{pod_name}.podspec --allow-warnings"
+                        ret = system(cmd)
+                        if ret  != true
+                            raise "💔 #{pod_name.yellow} 发布失败"
+                        end
+                        ## 到最后统一执行，判断如果当次release过
+                        `pod repo update`
                         Dir.chdir(currentDir)
                         checkAndRemoveSubmodule(path)
                     end

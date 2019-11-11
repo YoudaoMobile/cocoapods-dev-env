@@ -1,7 +1,7 @@
 module Cocoapods
   module Dev
     module Env
-      VERSION = "0.2.4"
+      VERSION = "0.9.1"
     end
   end
 end
