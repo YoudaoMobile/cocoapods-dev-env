@@ -2,9 +2,10 @@ Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
     podfile = installer.podfile
     #puts installer.instance_variables
     # forbidden submodule not cloned
-    `
-    git submodule update --init --recursive
-    `
+    # 会引起submodule HEAD回滚，不靠谱，先注释掉
+    # `
+    # git submodule update --init --recursive
+    # `
 end
 
 Pod::HooksManager.register('cocoapods-dev-env', :post_install) do |installer|
@@ -24,6 +25,19 @@ module Pod
     end
 class Podfile
     class TargetDefinition
+
+        def searchAndOpenLocalExample(path)
+            currentDir = Dir.pwd
+            Dir.chdir(path)
+            Dir.chdir("Example")
+            `pod install`
+            projPaths = Dir::glob("*.xcworkspace")
+            if projPaths.count > 0
+                `open -a Terminal ./`
+                `open #{projPaths[0]}`
+            end
+            Dir.chdir(currentDir)
+        end
 
         def checkAndRemoveSubmodule(path)
             currentDir = Dir.pwd
@@ -97,8 +111,8 @@ class Podfile
         end
 
         def inputNeedJumpForReson(str)
-            puts str
-            puts '是(Y), 否(N)'
+            puts str.green
+            puts '是(Y), 任意其他输入或直接回车跳过'.green
             input = STDIN.gets
             if input[0,1] == "Y"
                 return true
@@ -168,16 +182,22 @@ class Podfile
                         UI.puts "add submodule for #{pod_name.green}".yellow
                         # TODO 这个命令要想办法展示实际报错信息
                         `git submodule add --force -b #{branch} #{git} #{path}`
-                        
+                        if inputNeedJumpForReson("本地库#{pod_name} 开发模式加载完成，是否自动打开Example工程")
+                            searchAndOpenLocalExample(path)
+                        end
                         if !checkTagIsEqualToHead(tag, path) && !checkTagIsEqualToHead("#{tag}_beta", path)
                             raise "💔 #{pod_name.yellow} branch:#{branch.yellow} 与 tag:#{tag.yellow}[_beta] 内容不同步，请自行确认所用分支和tag后重新执行 pod install"
+                        end
+                    else
+                        if inputNeedJumpForReson("本地库#{pod_name} 处于开发模式，是否自动打开Example工程")
+                            searchAndOpenLocalExample(path)
                         end
                     end
                     options[:path] = path
                     if requirements.length >= 2
                         requirements.delete_at(0)
                     end
-                    UI.message "enabled #{"dev".green}-mode for #{pod_name.green}"
+                    UI.message "pod #{pod_name.green} enabled #{"dev".green}-mode 🍺"
                 elsif dev_env == 'beta'
                     # Beta模式，使用tag引用远端git库的代码
                     tag = "#{tag}_beta"
