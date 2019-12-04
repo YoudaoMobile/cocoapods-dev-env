@@ -41,7 +41,6 @@ Finally the state clean submodule will be removed automatically.
 
 3. When you define "dev_env" to "release", and run ```pod install``` . 
 We want to use the release version in cocoapods repo. And do many check for state, and help you to release the not released pod.  
-**But we hav't done it.**
 
 
 ## Development
