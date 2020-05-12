@@ -21,7 +21,7 @@ module Pod
         def self.keyword
             :dev_env # 'dev'/'beta'/'release'
         end
-        puts "🎉 plugin cocoapods-dev-env loaded 🎉".green
+        UI.message "🎉 plugin cocoapods-dev-env loaded 🎉".green
     end
 class Podfile
     class TargetDefinition
@@ -121,6 +121,19 @@ class Podfile
             end
         end
 
+        def getReposStrForLint()
+            if podfile.sources.size == 0
+                return ""
+            end
+            str = " --sources="
+            podfile.sources.each do |source|
+                str += source
+                str += ","
+            end
+            UI.puts str
+            return str
+        end
+
         def getUserRepoAddress()
             if podfile.sources.size == 0
                 raise "💔 发布release必须配置仓库的地址, e.g.: source 'https://github.com/CocoaPods/Specs.git'"
@@ -141,9 +154,12 @@ class Podfile
 
         ## --- option for setting using prebuild framework ---
         def parse_pod_dev_env(name, requirements)
+            
+
             options = requirements.last
             pod_name = Specification.root_name(name)
             last_options = $processedPodsOptions[pod_name]
+
             if (last_options != nil)
                 UI.message "#{name.green} use last_options: #{last_options.to_s.green}"
                 if options != nil && options.is_a?(Hash)
@@ -176,7 +192,17 @@ class Podfile
                 if tag == nil || tag.length == 0 
                     raise "💔 #{pod_name.yellow} 未定义:tag => 'xxx', tag 将会作为 dev模式下载最新代码检查的依据，beta模式引用的tag 以及 release模式引用的版本号"
                 end
-                if dev_env == 'dev' 
+
+                if dev_env == 'subtree'
+                    options[:path] = path
+                    if requirements.length >= 2
+                        requirements.delete_at(0)
+                    end
+                    UI.message "pod #{pod_name.green} enabled #{"subtree".green}-mode 🍺"
+                else if dev_env == 'dev'
+                    if ARGV.include? '--aaa'
+                        UI.puts "XXXXXXXXXXX".yellow
+                    end
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
                         UI.puts "add submodule for #{pod_name.green}".yellow
@@ -233,7 +259,11 @@ class Podfile
                         UI.puts "release release-version for #{pod_name.green}".yellow
                         currentDir = Dir.pwd
                         Dir.chdir(path)
-                        ret = system("pod lib lint --allow-warnings")
+                        verboseParamStr = ""
+                        if Config.instance.verbose
+                            verboseParamStr = " --verbose"
+                        end
+                        ret = system("pod lib lint --skip-import-validation --allow-warnings#{getReposStrForLint()}#{verboseParamStr}")
                         if ret != true
                             raise "💔 #{pod_name.yellow} lint 失败"
                         end
@@ -249,7 +279,8 @@ class Podfile
                         end
                         ## TODO:: 发布到的目标库名称需要用变量设置
                         repoAddrs = getUserRepoAddress()
-                        cmd = "pod repo push #{repoAddrs} #{pod_name}.podspec --allow-warnings"
+                        cmd = "pod repo push #{repoAddrs} #{pod_name}.podspec --skip-import-validation --allow-warnings#{getReposStrForLint()}"
+                        UI.puts cmd.green
                         ret = system(cmd)
                         if ret  != true
                             raise "💔 #{pod_name.yellow} 发布失败"
