@@ -1,6 +1,11 @@
 Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
     podfile = installer.podfile
     #puts installer.instance_variables
+    # forbidden submodule not cloned
+    # 会引起submodule HEAD回滚，不靠谱，先注释掉
+    # `
+    # git submodule update --init --recursive
+    # `
 end
 
 Pod::HooksManager.register('cocoapods-dev-env', :post_install) do |installer|
@@ -16,10 +21,23 @@ module Pod
         def self.keyword
             :dev_env # 'dev'/'beta'/'release'
         end
-        puts "🎉 plugin cocoapods-dev-env loaded 🎉".green
+        UI.message "🎉 plugin cocoapods-dev-env loaded 🎉".green
     end
 class Podfile
     class TargetDefinition
+
+        def searchAndOpenLocalExample(path)
+            currentDir = Dir.pwd
+            Dir.chdir(path)
+            Dir.chdir("Example")
+            `pod install`
+            projPaths = Dir::glob("*.xcworkspace")
+            if projPaths.count > 0
+                `open -a Terminal ./`
+                `open #{projPaths[0]}`
+            end
+            Dir.chdir(currentDir)
+        end
 
         def checkAndRemoveSubmodule(path)
             currentDir = Dir.pwd
@@ -47,7 +65,11 @@ class Podfile
             Dir.chdir(path)
             result = `git describe --abbrev=4 HEAD`
             Dir.chdir(currentDir)
-            return result.include?(tag)
+            if result.include?(tag)
+                return true
+            else
+                return checkTagOrBranchIsEqalToHead(tag, path)
+            end
         end
 
 # 这个函数有问题有时候拿不到相同的commit id
@@ -61,11 +83,83 @@ class Podfile
             return (headCommitID.length > 0 && headCommitID == tagCommitID)
         end
 
+        def checkGitStatusAndPush(pod_name)
+            output = `git status -s`
+            puts output
+            if output.length == 0
+                output = `git status`
+                if output.include?("push")
+                    ret = system("git push")
+                    if ret != true
+                        raise "💔 #{pod_name.yellow} push 失败"
+                    end
+                end
+            else
+                raise "💔 #{pod_name.yellow} 有未提交的数据"
+            end
+        end
+
+        def addGitTagAndPush(tag, pod_name)
+            ret = system("git tag #{tag}")
+            if ret == true
+                ret = system("git push origin #{tag}")
+                if ret != true
+                    raise "💔 #{pod_name.yellow} push tag 失败"
+                end
+            end
+            return ret
+        end
+
+        def inputNeedJumpForReson(str)
+            puts str.green
+            puts '是(Y), 任意其他输入或直接回车跳过'.green
+            input = STDIN.gets
+            if input[0,1] == "Y"
+                return true
+            else
+                return false
+            end
+        end
+
+        def getReposStrForLint()
+            if podfile.sources.size == 0
+                return ""
+            end
+            str = " --sources="
+            podfile.sources.each do |source|
+                str += source
+                str += ","
+            end
+            UI.puts str
+            return str
+        end
+
+        def getUserRepoAddress()
+            if podfile.sources.size == 0
+                raise "💔 发布release必须配置仓库的地址, e.g.: source 'https://github.com/CocoaPods/Specs.git'"
+            end
+            index = nil
+            begin
+                UI.puts  "\n\n⌨️  请输入要发布到的cocoapods仓库序号, 按回车确认: ".yellow
+                num = 1
+                podfile.sources.each do |source|
+                    UI.puts "#{num.to_s.yellow}. #{source.green}"
+                    num += 1
+                end
+                index = STDIN.gets.to_i - 1
+            end until (index >= 0 && index < podfile.sources.size)
+            source = podfile.sources[index]
+            return source
+        end
+
         ## --- option for setting using prebuild framework ---
         def parse_pod_dev_env(name, requirements)
+            
+
             options = requirements.last
             pod_name = Specification.root_name(name)
             last_options = $processedPodsOptions[pod_name]
+
             if (last_options != nil)
                 UI.message "#{name.green} use last_options: #{last_options.to_s.green}"
                 if options != nil && options.is_a?(Hash)
@@ -89,57 +183,65 @@ class Podfile
                 if path == nil 
                     path = "./developing_pods/#{pod_name}"
                 end
-                if dev_env == 'dev' 
+                if git == nil || git.length == 0 
+                    raise "💔 #{pod_name.yellow} 未定义:git => 'xxx'库地址"
+                end
+                if branch == nil || branch.length == 0 
+                    raise "💔 #{pod_name.yellow} 未定义:branch => 'xxx'"
+                end
+                if tag == nil || tag.length == 0 
+                    raise "💔 #{pod_name.yellow} 未定义:tag => 'xxx', tag 将会作为 dev模式下载最新代码检查的依据，beta模式引用的tag 以及 release模式引用的版本号"
+                end
+
+                if dev_env == 'subtree'
+                    options[:path] = path
+                    if requirements.length >= 2
+                        requirements.delete_at(0)
+                    end
+                    UI.message "pod #{pod_name.green} enabled #{"subtree".green}-mode 🍺"
+                else if dev_env == 'dev'
+                    if ARGV.include? '--aaa'
+                        UI.puts "XXXXXXXXXXX".yellow
+                    end
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
                         UI.puts "add submodule for #{pod_name.green}".yellow
+                        # TODO 这个命令要想办法展示实际报错信息
                         `git submodule add --force -b #{branch} #{git} #{path}`
-                        
+                        if inputNeedJumpForReson("本地库#{pod_name} 开发模式加载完成，是否自动打开Example工程")
+                            searchAndOpenLocalExample(path)
+                        end
                         if !checkTagIsEqualToHead(tag, path) && !checkTagIsEqualToHead("#{tag}_beta", path)
                             raise "💔 #{pod_name.yellow} branch:#{branch.yellow} 与 tag:#{tag.yellow}[_beta] 内容不同步，请自行确认所用分支和tag后重新执行 pod install"
+                        end
+                    else
+                        if inputNeedJumpForReson("本地库#{pod_name} 处于开发模式，是否自动打开Example工程")
+                            searchAndOpenLocalExample(path)
                         end
                     end
                     options[:path] = path
                     if requirements.length >= 2
                         requirements.delete_at(0)
                     end
-                    UI.message "enabled #{"dev".green}-mode for #{pod_name.green}"
+                    UI.message "pod #{pod_name.green} enabled #{"dev".green}-mode 🍺"
                 elsif dev_env == 'beta'
                     # Beta模式，使用tag引用远端git库的代码
                     tag = "#{tag}_beta"
                     if File.directory?(path)
                         # 从Dev模式刚刚切换过来，需要打tag并且push
-                        UI.puts "gen beta env for #{pod_name.green}".yellow
-                        if tag == nil || tag.length == 0 
-                            raise "💔 #{pod_name.yellow} 未定义tag"
-                        end
+                        UI.puts "release beta-version for #{pod_name.green}".yellow
                         currentDir = Dir.pwd
                         Dir.chdir(path)
-                        output = `git status -s`
-                        puts output
-                        if output.length == 0
-                            output = `git status`
-                            if output.include?("push")
-                                ret = system("git push")
-                                if ret != true
-                                    raise "💔 #{pod_name.yellow} push 失败"
-                                end
-                            end
-                        else
-                            raise "有未提交的数据"
-                        end
+                        checkGitStatusAndPush(pod_name)
                         ## TODO:: 检查tag版本号与podspec里的版本号是否一致
-                        ret = system("git tag #{tag}")
-                        if ret == true
-                            ret = system("git push origin #{tag}")
-                            if ret != true
-                                raise "💔 #{pod_name.yellow} push tag 失败"
-                            end
-                        else
+                        ret = addGitTagAndPush(tag, pod_name)
+                        if ret != true
                             if checkTagOrBranchIsEqalToHead(tag, "./")
-                                UI.message "#{pod_name.green} 没做任何调整，切换回beta"
+                                UI.puts "#{pod_name.green} 没做任何调整，切换回beta"
                             else
-                                raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
+                                if !inputNeedJumpForReson("是否跳过beta发布并删除本地submodule(直接引用远端库)")
+                                    raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
+                                end
                             end
                         end
                         Dir.chdir(currentDir)
@@ -154,14 +256,42 @@ class Podfile
                 elsif dev_env == 'release'
                     # Release模式，直接使用远端对应的版本
                     if File.directory?(path)
-                        if tag == nil || tag.length == 0 
-                            raise "💔 #{pod_name.yellow} 未定义tag"
-                        end
+                        UI.puts "release release-version for #{pod_name.green}".yellow
                         currentDir = Dir.pwd
                         Dir.chdir(path)
-                        
+                        verboseParamStr = ""
+                        if Config.instance.verbose
+                            verboseParamStr = " --verbose"
+                        end
+                        ret = system("pod lib lint --skip-import-validation --allow-warnings#{getReposStrForLint()}#{verboseParamStr}")
+                        if ret != true
+                            raise "💔 #{pod_name.yellow} lint 失败"
+                        end
+                        checkGitStatusAndPush(pod_name)
+                        ## TODO:: 检查tag版本号与podspec里的版本号是否一致
+                        ret = addGitTagAndPush(tag, pod_name)
+                        if ret == false
+                            if checkTagOrBranchIsEqalToHead(tag, "./")
+                                UI.puts "#{pod_name.green} 已经打过tag".yellow
+                            else
+                                raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
+                            end
+                        end
+                        ## TODO:: 发布到的目标库名称需要用变量设置
+                        repoAddrs = getUserRepoAddress()
+                        cmd = "pod repo push #{repoAddrs} #{pod_name}.podspec --skip-import-validation --allow-warnings#{getReposStrForLint()}"
+                        UI.puts cmd.green
+                        ret = system(cmd)
+                        if ret  != true
+                            raise "💔 #{pod_name.yellow} 发布失败"
+                        end
+                        ## 到最后统一执行，判断如果当次release过
+                        `pod repo update`
                         Dir.chdir(currentDir)
                         checkAndRemoveSubmodule(path)
+                    end
+                    if requirements.length < 2
+                        requirements.insert(0, "#{tag}")
                     end
                     UI.message "enabled #{"release".green}-mode for #{pod_name.green}"
                 else
