@@ -111,6 +111,10 @@ class Podfile
         end
 
         def inputNeedJumpForReson(str)
+            if ARGV.include? '--silent'
+                return false
+            end
+
             puts str.green
             puts '是(Y), 任意其他输入或直接回车跳过'.green
             input = STDIN.gets
@@ -199,25 +203,22 @@ class Podfile
                         requirements.delete_at(0)
                     end
                     UI.message "pod #{pod_name.green} enabled #{"subtree".green}-mode 🍺"
-                else if dev_env == 'dev'
-                    if ARGV.include? '--aaa'
-                        UI.puts "XXXXXXXXXXX".yellow
-                    end
+                elsif dev_env == 'dev'
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
                         UI.puts "add submodule for #{pod_name.green}".yellow
                         # TODO 这个命令要想办法展示实际报错信息
                         `git submodule add --force -b #{branch} #{git} #{path}`
-                        if inputNeedJumpForReson("本地库#{pod_name} 开发模式加载完成，是否自动打开Example工程")
-                            searchAndOpenLocalExample(path)
-                        end
+                        # if inputNeedJumpForReson("本地库#{pod_name} 开发模式加载完成，是否自动打开Example工程")
+                        #     searchAndOpenLocalExample(path)
+                        # end
                         if !checkTagIsEqualToHead(tag, path) && !checkTagIsEqualToHead("#{tag}_beta", path)
                             raise "💔 #{pod_name.yellow} branch:#{branch.yellow} 与 tag:#{tag.yellow}[_beta] 内容不同步，请自行确认所用分支和tag后重新执行 pod install"
                         end
                     else
-                        if inputNeedJumpForReson("本地库#{pod_name} 处于开发模式，是否自动打开Example工程")
-                            searchAndOpenLocalExample(path)
-                        end
+                        # if inputNeedJumpForReson("本地库#{pod_name} 处于开发模式，是否自动打开Example工程")
+                        #     searchAndOpenLocalExample(path)
+                        # end
                     end
                     options[:path] = path
                     if requirements.length >= 2
