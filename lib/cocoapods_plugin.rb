@@ -1,3 +1,5 @@
+require "file_processer"
+
 Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
     podfile = installer.podfile
     #puts installer.instance_variables
@@ -27,7 +29,7 @@ class Podfile
     class TargetDefinition
 
         def searchAndOpenLocalExample(path)
-            currentDir = Dir.pwd
+            _currentDir = Dir.pwd
             Dir.chdir(path)
             Dir.chdir("Example")
             `pod install`
@@ -36,11 +38,11 @@ class Podfile
                 `open -a Terminal ./`
                 `open #{projPaths[0]}`
             end
-            Dir.chdir(currentDir)
+            Dir.chdir(_currentDir)
         end
 
         def checkAndRemoveSubmodule(path)
-            currentDir = Dir.pwd
+            _currentDir = Dir.pwd
             Dir.chdir(path)
             output = `git status -s`
             puts output
@@ -52,7 +54,7 @@ class Podfile
             else
                 raise "submodule #{path} 移除失败，有未提交的修改"
             end
-            Dir.chdir(currentDir)
+            Dir.chdir(_currentDir)
             `
             git submodule deinit #{path}
             rm -rf #{path}
@@ -61,10 +63,10 @@ class Podfile
         end
 
         def checkTagIsEqualToHead(tag, path)
-            currentDir = Dir.pwd
+            _currentDir = Dir.pwd
             Dir.chdir(path)
             result = `git describe --abbrev=4 HEAD`
-            Dir.chdir(currentDir)
+            Dir.chdir(_currentDir)
             if result.include?(tag)
                 return true
             else
@@ -74,12 +76,12 @@ class Podfile
 
 # 这个函数有问题有时候拿不到相同的commit id
         def checkTagOrBranchIsEqalToHead(branchOrTag, path)
-            currentDir = Dir.pwd
+            _currentDir = Dir.pwd
             Dir.chdir(path)
             headCommitID = `git rev-parse HEAD`
             tagCommitID = `git rev-parse #{branchOrTag}`
             UI.puts "#{`pwd`}  headCommitID:#{headCommitID} \n #{branchOrTag}ComitID:#{tagCommitID}"
-            Dir.chdir(currentDir)
+            Dir.chdir(_currentDir)
             return (headCommitID.length > 0 && headCommitID == tagCommitID)
         end
 
@@ -156,10 +158,20 @@ class Podfile
             return source
         end
 
+        def changeVersionInCocoapods(name, newVersion)
+            specName = name + ".podspec"
+            FileProcesserManager.new(specName, 
+                [
+                    FileProcesser.new(-> (fileContent) {
+                        return fileContent.gsub(/(\.version *= *')(.*')/, "\\1" + newVersion + "'")
+                    })
+            ]).process()
+            `git add #{specName}
+             git commit -m "Mod: 修改版本号为:#{newVersion} by cocoapods_dev_env plugin"`
+        end
+
         ## --- option for setting using prebuild framework ---
         def parse_pod_dev_env(name, requirements)
-            
-
             options = requirements.last
             pod_name = Specification.root_name(name)
             last_options = $processedPodsOptions[pod_name]
@@ -198,6 +210,25 @@ class Podfile
                 end
 
                 if dev_env == 'subtree'
+                    if !File.directory?(path)
+                        _toplevelDir = `git rev-parse --show-toplevel`
+                        _currentDir = `pwd`
+                        _subtreeDir = path
+                        if _currentDir != _toplevelDir
+                            Dir.chdir(_toplevelDir)
+                            _end = path
+                            if _end[0,2] == './'
+                                _end = _end[1, _end.length - 1]
+                            else
+                                _end = '/' + _end
+                            end
+                            _subtreeDir = './' + _currentDir[_toplevelDir.length, _currentDir.length - _toplevelDir.length] + path
+                        end
+                        _cmd = "git subtree add --prefix #{_subtreeDir} #{git} #{branch} --squash"
+                        UI.puts _cmd
+                        system(_cmd)
+                        Dir.chdir(_currentDir)
+                    end
                     options[:path] = path
                     if requirements.length >= 2
                         requirements.delete_at(0)
@@ -207,8 +238,22 @@ class Podfile
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
                         UI.puts "add submodule for #{pod_name.green}".yellow
-                        # TODO 这个命令要想办法展示实际报错信息
-                        `git submodule add --force -b #{branch} #{git} #{path}`
+                        _cmd = "git submodule add --force -b #{tag}_beta #{git} #{path}"
+                        UI.puts _cmd
+                        system(_cmd)
+
+                        _currentDir = Dir.pwd
+                        Dir.chdir(path)
+
+                        curGitRemoteUrl = `git remote get-url origin`.rstrip()
+                        if curGitRemoteUrl == git
+                            
+                            _cmd = "git reset --hard"
+                            UI.puts _cmd
+                            system(_cmd)
+                        end
+                        Dir.chdir(_currentDir)
+                        
                         # if inputNeedJumpForReson("本地库#{pod_name} 开发模式加载完成，是否自动打开Example工程")
                         #     searchAndOpenLocalExample(path)
                         # end
@@ -227,14 +272,16 @@ class Podfile
                     UI.message "pod #{pod_name.green} enabled #{"dev".green}-mode 🍺"
                 elsif dev_env == 'beta'
                     # Beta模式，使用tag引用远端git库的代码
+                    originTag = tag
                     tag = "#{tag}_beta"
                     if File.directory?(path)
                         # 从Dev模式刚刚切换过来，需要打tag并且push
                         UI.puts "release beta-version for #{pod_name.green}".yellow
-                        currentDir = Dir.pwd
+                        _currentDir = Dir.pwd
                         Dir.chdir(path)
-                        checkGitStatusAndPush(pod_name)
-                        ## TODO:: 检查tag版本号与podspec里的版本号是否一致
+                        # 已经进入到podspec的文件夹中了
+                        changeVersionInCocoapods(pod_name, originTag)
+                        checkGitStatusAndPush(pod_name) # push一下
                         ret = addGitTagAndPush(tag, pod_name)
                         if ret != true
                             if checkTagOrBranchIsEqalToHead(tag, "./")
@@ -245,7 +292,7 @@ class Podfile
                                 end
                             end
                         end
-                        Dir.chdir(currentDir)
+                        Dir.chdir(_currentDir)
                         checkAndRemoveSubmodule(path)
                     end
                     options[:git] = git
@@ -258,7 +305,7 @@ class Podfile
                     # Release模式，直接使用远端对应的版本
                     if File.directory?(path)
                         UI.puts "release release-version for #{pod_name.green}".yellow
-                        currentDir = Dir.pwd
+                        _currentDir = Dir.pwd
                         Dir.chdir(path)
                         verboseParamStr = ""
                         if Config.instance.verbose
@@ -288,7 +335,7 @@ class Podfile
                         end
                         ## 到最后统一执行，判断如果当次release过
                         `pod repo update`
-                        Dir.chdir(currentDir)
+                        Dir.chdir(_currentDir)
                         checkAndRemoveSubmodule(path)
                     end
                     if requirements.length < 2
