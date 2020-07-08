@@ -244,7 +244,7 @@ class Podfile
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(path)
                         UI.puts "add submodule for #{pod_name.green}".yellow
-                        _cmd = "git submodule add --force -b #{tag}_beta #{git} #{path}"
+                        _cmd = "git submodule add --force -b #{branch} #{git} #{path}"
                         UI.puts _cmd
                         system(_cmd)
 
