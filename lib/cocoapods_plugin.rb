@@ -101,6 +101,12 @@ class Podfile
             end
         end
 
+        def checkRemoteTagExist(tag)
+            `git push --tags`
+            ret = system("git ls-remote --exit-code origin refs/tags/#{tag}")
+            return ret
+        end
+
         def addGitTagAndPush(tag, pod_name)
             ret = system("git tag #{tag}")
             if ret == true
@@ -247,7 +253,6 @@ class Podfile
 
                         curGitRemoteUrl = `git remote get-url origin`.rstrip()
                         if curGitRemoteUrl == git
-                            
                             _cmd = "git reset --hard"
                             UI.puts _cmd
                             system(_cmd)
@@ -280,17 +285,22 @@ class Podfile
                         _currentDir = Dir.pwd
                         Dir.chdir(path)
                         # 已经进入到podspec的文件夹中了
-                        changeVersionInCocoapods(pod_name, originTag)
                         checkGitStatusAndPush(pod_name) # push一下
-                        ret = addGitTagAndPush(tag, pod_name)
-                        if ret != true
+                        ret = checkRemoteTagExist(tag)
+                        if ret == true
+                            # tag已经存在，要么没改动，要么已经手动打过tag，要么是需要引用老版本tag的代码
                             if checkTagOrBranchIsEqalToHead(tag, "./")
-                                UI.puts "#{pod_name.green} 没做任何调整，切换回beta"
+                                UI.puts "#{pod_name.green} 检测到未做任何调整，或已手动打过Tag"
                             else
                                 if !inputNeedJumpForReson("是否跳过beta发布并删除本地submodule(直接引用远端库)")
-                                    raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
+                                    raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 且与当前Commit不对应. 请确认拉到本地之后已经在podfile中手动修改tag版本号"
                                 end
                             end
+                        else
+                            # tag不存在，
+                            changeVersionInCocoapods(pod_name, originTag)
+                            checkGitStatusAndPush(pod_name) # 再push一下
+                            addGitTagAndPush(tag, pod_name)    
                         end
                         Dir.chdir(_currentDir)
                         checkAndRemoveSubmodule(path)

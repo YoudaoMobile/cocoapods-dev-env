@@ -53,6 +53,21 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/YoudaoMobile/cocoapods-dev-env. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
 
+### prepare
+install gem bundler:  
+    
+    gem install bundler
+
+create Gemfile:
+    
+    bundler init
+
+edit GemFile for local path, e.g.:
+
+    gem 'cocoapods'
+    gem 'cocoapods-dev-env', :path => '../cocoapods-dev-env'
+
+### debug and package
 1. How to develop: put gem in your project and exec `bundle exec pod install`
 2. How to packagae: `rake build` 
 3. How to release: `rake release` or `gem push ./pkg/cocoapods-dev-env-0.2.2.gem` 
