@@ -161,6 +161,7 @@ class Podfile
                 index = STDIN.gets.to_i - 1
             end until (index >= 0 && index < podfile.sources.size)
             source = podfile.sources[index]
+            UI.puts "#{"选择了发布到: ".yellow}. #{source.green}(#{index + 1})"
             return source
         end
 
@@ -321,12 +322,13 @@ class Podfile
                         if Config.instance.verbose
                             verboseParamStr = " --verbose"
                         end
-                        ret = system("pod lib lint --skip-import-validation --allow-warnings#{getReposStrForLint()}#{verboseParamStr}")
+                        ret = system("pod lib lint --skip-import-validation --fail-fast --allow-warnings#{getReposStrForLint()}#{verboseParamStr}")
                         if ret != true
                             raise "💔 #{pod_name.yellow} lint 失败"
                         end
                         checkGitStatusAndPush(pod_name)
-                        ## TODO:: 检查tag版本号与podspec里的版本号是否一致
+                        changeVersionInCocoapods(pod_name, originTag)
+                        checkGitStatusAndPush(pod_name)
                         ret = addGitTagAndPush(tag, pod_name)
                         if ret == false
                             if checkTagOrBranchIsEqalToHead(tag, "./")
