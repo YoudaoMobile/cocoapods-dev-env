@@ -166,6 +166,10 @@ class Podfile
         end
 
         def changeVersionInCocoapods(name, newVersion)
+            if (newVersion == nil)
+                UI.puts "💔 切换版本号的版本现在为空，无法设置版本号".yellow
+                return
+            end
             specName = name + ".podspec"
             FileProcesserManager.new(specName, 
                 [
@@ -327,7 +331,7 @@ class Podfile
                             raise "💔 #{pod_name.yellow} lint 失败"
                         end
                         checkGitStatusAndPush(pod_name)
-                        changeVersionInCocoapods(pod_name, originTag)
+                        changeVersionInCocoapods(pod_name, tag)
                         checkGitStatusAndPush(pod_name)
                         ret = addGitTagAndPush(tag, pod_name)
                         if ret == false
@@ -339,7 +343,7 @@ class Podfile
                         end
                         ## TODO:: 发布到的目标库名称需要用变量设置
                         repoAddrs = getUserRepoAddress()
-                        cmd = "pod repo push #{repoAddrs} #{pod_name}.podspec --skip-import-validation --allow-warnings#{getReposStrForLint()}"
+                        cmd = "pod repo push #{repoAddrs} #{pod_name}.podspec --skip-import-validation --allow-warnings --use-modular-headers#{getReposStrForLint()}#{verboseParamStr}"
                         UI.puts cmd.green
                         ret = system(cmd)
                         if ret  != true
@@ -357,7 +361,7 @@ class Podfile
                 else
                     raise "💔 :dev_env 必须要设置成 dev/beta/release之一，不接受其他值"
                 end
-                $processedPodsOptions[pod_name] = options
+                $processedPodsOptions[pod_name] = options.clone
                 requirements.pop if options.empty?
             end
         end
