@@ -23,6 +23,9 @@ module Pod
         def self.keyword
             :dev_env # 'dev'/'beta'/'release'
         end
+        def self.binary_key
+            :dev_env_use_binary # true / false
+        end
         UI.message "🎉 plugin cocoapods-dev-env loaded 🎉".green
     end
 class Podfile
@@ -198,7 +201,9 @@ class Podfile
                 return
             end
             if options.is_a?(Hash)
+                use_binary = options.delete(Pod::DevEnv::binary_key)
                 dev_env = options.delete(Pod::DevEnv::keyword)
+                
                 if dev_env == nil 
                     return
                 end
@@ -361,6 +366,14 @@ class Podfile
                 else
                     raise "💔 :dev_env 必须要设置成 dev/beta/release之一，不接受其他值"
                 end
+                if use_binary == true
+                    options.delete(:git)
+                    options.delete(:tag)
+                    options[:source] = "git@gitlab.corp.youdao.com:luna-ios-framework/ios-framework-spec-repo.git"
+                    UI.puts "options #{options}"
+                    UI.puts "requirements #{requirements}"
+                end
+
                 $processedPodsOptions[pod_name] = options.clone
                 requirements.pop if options.empty?
             end
