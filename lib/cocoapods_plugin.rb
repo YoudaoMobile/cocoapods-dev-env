@@ -200,14 +200,11 @@ class Podfile
                 else
                     requirements.push(last_options)
                 end 
-                
-                return
-            end
-            if options.is_a?(Hash)
+            elsif options.is_a?(Hash)
                 use_binary = options.delete(Pod::DevEnv::binary_key)
                 dev_env = options.delete(Pod::DevEnv::keyword)
                 
-                denEnv(dev_env, options, pod_name, name, requirements)
+                deal_dev_env_with_options(dev_env, options, pod_name, name, requirements)
                 if dev_env != 'dev' 
                     useBinary(dev_env, pod_name, use_binary, options, requirements)
                 end
@@ -220,7 +217,7 @@ class Podfile
             end    
         end
 
-        def denEnv(dev_env, options, pod_name, name, requirements) 
+        def deal_dev_env_with_options(dev_env, options, pod_name, name, requirements) 
             if dev_env == nil 
                 return
             end
