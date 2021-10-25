@@ -414,12 +414,12 @@ class Podfile
 
         def binary_repo_url
             if @binary_repo_url == nil
-                @binary_repo_url = Luna::Binary::Common.instance.binary_repo_url
+                @binary_repo_url = Luna::Binary::Common.instance.binary_repo_url #从luna-binary-uploader里获取binary_repo_url
             end
             return @binary_repo_url
         end
 
-        def find_pod_repos(pod_name)
+        def find_pod_repos(pod_name) #等同pod search
             sets = Pod::Config.instance.sources_manager.search_by_name(pod_name)
             if sets.count == 1
                 set = sets.first
