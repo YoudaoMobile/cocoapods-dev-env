@@ -390,7 +390,6 @@ class Podfile
                         version = options[:tag].split.last.scan(/\d+/).join('.') 
                         spec = binary_source.specification_path(pod_name, Version.new(version))
                         if spec 
-                            UI.puts "#{pod_name.green} #{options} by cocoapods-dev-env"
                             options.delete(:git)
                             options.delete(:path)
                             options.delete(:tag)
