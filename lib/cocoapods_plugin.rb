@@ -431,6 +431,8 @@ class Podfile
                 end
             end
             UI.puts "#{pod_name.green} :source=> #{options[:source].green} by cocoapods-dev-env" if options[:source] != nil
+            UI.message "#{pod_name.yellow} options #{options}  by cocoapods-dev-env" if options[:source] != nil
+            UI.message "#{pod_name.yellow} requirements #{requirements}  by cocoapods-dev-env" if options[:source] != nil
         end
 
         def binary_repo_url
