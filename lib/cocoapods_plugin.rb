@@ -32,6 +32,7 @@ module Pod
 class Podfile
     class TargetDefinition
         attr_reader :binary_repo_url
+        attr_reader :binary_source
 
         def searchAndOpenLocalExample(path)
             _currentDir = Dir.pwd
@@ -175,6 +176,7 @@ class Podfile
                 UI.puts "💔 切换版本号的版本现在为空，无法设置版本号".yellow
                 return
             end
+            newVersion = get_pure_version(newVersion)
             specName = name + ".podspec"
             FileProcesserManager.new(specName, 
                 [
@@ -206,7 +208,7 @@ class Podfile
                 
                 deal_dev_env_with_options(dev_env, options, pod_name, name, requirements)
                 if dev_env != 'dev' 
-                    useBinary(dev_env, pod_name, use_binary, options, requirements)
+                    binary_processer(dev_env, pod_name, use_binary, options, requirements)
                 end
 
                 
@@ -374,7 +376,7 @@ class Podfile
                     checkAndRemoveSubmodule(path)
                 end
                 if requirements.length < 2
-                    requirements.insert(0, "#{tag}")
+                    requirements.insert(0, "#{get_pure_version(tag)}")
                 end
                 UI.message "enabled #{"release".green}-mode for #{pod_name.green}"
             else
@@ -382,27 +384,50 @@ class Podfile
             end
         end
         
-        def useBinary(dev_env, pod_name, use_binary, options, requirements)
+        def binary_processer(dev_env, pod_name, use_binary, options, requirements)
             if use_binary && use_binary == true
-                options.delete(:git)
-                options.delete(:tag)
-                options.delete(:path)
-                options[:source] = binary_repo_url
+                if options[:tag] != nil
+                    begin
+                        version = get_pure_version(options[:tag])
+                        spec = binary_source.specification_path(pod_name, Version.new(version))
+                        if spec 
+                            if requirements.length < 2
+                                options.delete(:git)
+                                options.delete(:path)
+                                options.delete(:tag)
+                                options[:source] = binary_repo_url
+                                requirements.insert(0, "#{version}")
+                            else
+                                UI.puts "pod '#{pod_name}' :tag => #{options[:tag]} version: #{version} 对应的版本,但是已经标记版本号#{requirements}, 不知道用哪个".red
+                            end
+                        else
+                            UI.puts "pod '#{pod_name}' :tag => #{options[:tag]} version: #{version} 没有找到: tag 对应的版本".red
+                        end
+                    rescue => exception
+                        UI.puts "pod '#{pod_name}' :tag => #{options[:tag]} version: #{version} 没有找到: tag 对应的版本".red
+                    else
+                        
+                    end
+                else
+                    options.delete(:git)
+                    options.delete(:path)
+                    options.delete(:tag)
+                    options[:source] = binary_repo_url
+                end
+                
             else
                 if options[:source] == nil
                     begin
                         sources = find_pod_repos(pod_name).sources.select{|item| item.url.downcase != binary_repo_url.downcase } if options.empty?
                         if sources != nil
                             if sources.length >= 2
-                                p "#{pod_name} 有多个source #{sources}"
+                                UI.puts "#{pod_name.green} 有多个source #{sources}".yellow
                                 source_url = sources.detect{|item| item.url.downcase != Pod::TrunkSource::TRUNK_REPO_URL.downcase && item.url.downcase != "https://github.com/CocoaPods/Specs.git".downcase}.url
                             else
                                 source_url = sources.first.url
                             end
                         end
                         options[:source] = source_url if source_url != nil
-                        UI.puts "#{pod_name} :source=> #{options[:source]} by cocoapods-dev-env".yellow if options[:source] != nil
-                        
                     rescue => exception
                         UI.puts "#{pod_name} exception:#{exception}".red
                     else
@@ -410,6 +435,9 @@ class Podfile
                     end
                 end
             end
+            UI.puts "#{pod_name.green} :source=> #{options[:source].green} by cocoapods-dev-env" if options[:source] != nil
+            UI.message "#{pod_name.yellow} options #{options}  by cocoapods-dev-env" if options[:source] != nil
+            UI.message "#{pod_name.yellow} requirements #{requirements}  by cocoapods-dev-env" if options[:source] != nil
         end
 
         def binary_repo_url
@@ -417,6 +445,17 @@ class Podfile
                 @binary_repo_url = Luna::Binary::Common.instance.binary_repo_url #从luna-binary-uploader里获取binary_repo_url
             end
             return @binary_repo_url
+        end
+
+        def binary_source 
+            if @binary_source == nil
+                @binary_source = Pod::Config.instance.sources_manager.all.detect{|item| item.url.downcase == binary_repo_url.downcase}
+            end
+            return @binary_source
+        end
+
+        def get_pure_version(version) 
+            return version.split.last.scan(/\d+/).join('.') 
         end
 
         def find_pod_repos(pod_name) #等同pod search
