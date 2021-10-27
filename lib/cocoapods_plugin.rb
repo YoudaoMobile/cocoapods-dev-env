@@ -176,7 +176,7 @@ class Podfile
                 UI.puts "💔 切换版本号的版本现在为空，无法设置版本号".yellow
                 return
             end
-            newVersion = pure_version(newVersion)
+            newVersion = get_pure_version(newVersion)
             specName = name + ".podspec"
             FileProcesserManager.new(specName, 
                 [
@@ -376,7 +376,7 @@ class Podfile
                     checkAndRemoveSubmodule(path)
                 end
                 if requirements.length < 2
-                    requirements.insert(0, "#{tag}")
+                    requirements.insert(0, "#{get_pure_version(tag)}")
                 end
                 UI.message "enabled #{"release".green}-mode for #{pod_name.green}"
             else
@@ -388,7 +388,7 @@ class Podfile
             if use_binary && use_binary == true
                 if options[:tag] != nil
                     begin
-                        version = pure_version(options[:tag])
+                        version = get_pure_version(options[:tag])
                         spec = binary_source.specification_path(pod_name, Version.new(version))
                         if spec 
                             if requirements.length < 2
@@ -454,7 +454,7 @@ class Podfile
             return @binary_source
         end
 
-        def pure_version(version) 
+        def get_pure_version(version) 
             return version.split.last.scan(/\d+/).join('.') 
         end
 
