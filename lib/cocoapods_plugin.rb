@@ -176,6 +176,7 @@ class Podfile
                 UI.puts "💔 切换版本号的版本现在为空，无法设置版本号".yellow
                 return
             end
+            newVersion = pure_version(newVersion)
             specName = name + ".podspec"
             FileProcesserManager.new(specName, 
                 [
