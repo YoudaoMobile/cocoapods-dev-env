@@ -387,15 +387,20 @@ class Podfile
             if use_binary && use_binary == true
                 if options[:tag] != nil
                     begin
-                        version = options[:tag].split.last.scan(/\d+/).join('.') 
+                        version = pure_version(options[:tag])
                         spec = binary_source.specification_path(pod_name, Version.new(version))
                         if spec 
-                            options.delete(:git)
-                            options.delete(:path)
-                            options.delete(:tag)
-                            options[:source] = binary_repo_url
+                            if requirements.length < 2
+                                options.delete(:git)
+                                options.delete(:path)
+                                options.delete(:tag)
+                                options[:source] = binary_repo_url
+                                requirements.insert(0, "#{version}")
+                            else
+                                UI.puts "pod '#{pod_name}' :tag => #{options[:tag]} version: #{version} 对应的版本,但是已经标记版本号#{requirements}, 不知道用哪个".red
+                            end
                         else
-                            UI.puts "#{pod_name} #{version} 没有找到 ':tag' 对应的版本".red
+                            UI.puts "pod '#{pod_name}' :tag => #{options[:tag]} version: #{version} 没有找到: tag 对应的版本".red
                         end
                     rescue => exception
                         UI.puts "pod '#{pod_name}' :tag => #{options[:tag]} version: #{version} 没有找到: tag 对应的版本".red
@@ -446,6 +451,10 @@ class Podfile
                 @binary_source = Pod::Config.instance.sources_manager.all.detect{|item| item.url.downcase == binary_repo_url.downcase}
             end
             return @binary_source
+        end
+
+        def pure_version(version) 
+            return version.split.last.scan(/\d+/).join('.') 
         end
 
         def find_pod_repos(pod_name) #等同pod search
