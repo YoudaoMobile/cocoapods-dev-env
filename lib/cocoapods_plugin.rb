@@ -19,6 +19,8 @@ end
 $processedPodsState = Hash.new
 $processedPodsOptions = Hash.new
 
+$parentPodlockDependencyHash = Hash.new
+
 module Pod
     class DevEnv
         def self.keyword
@@ -188,8 +190,7 @@ class Podfile
              git commit -m "Mod: 修改版本号为:#{newVersion} by cocoapods_dev_env plugin"`
         end
 
-        ## --- option for setting using prebuild framework ---
-        
+        ## --- hook的入口函数 ---
         def parse_pod_dev_env(name, requirements)
             options = requirements.last
             pod_name = Specification.root_name(name)
@@ -205,8 +206,16 @@ class Podfile
             elsif options.is_a?(Hash)
                 use_binary = options.delete(Pod::DevEnv::binary_key)
                 dev_env = options.delete(Pod::DevEnv::keyword)
+
+                if dev_env == nil {
+                    # 子库无需引用齐全所有的依赖库，从上级目录podlock中获取依赖
+                    deal_options_from_parent_lockfile(options, pod_name, name, requirements) 
+                }
                 
+                # 主功能，根据dev_env标记来管理使用代码的方式
                 deal_dev_env_with_options(dev_env, options, pod_name, name, requirements)
+
+                # 处理二进制
                 if dev_env != 'dev' 
                     binary_processer(dev_env, pod_name, use_binary, options, requirements)
                 end
@@ -219,6 +228,12 @@ class Podfile
             end    
         end
 
+        def deal_options_from_parent_lockfile(options, pod_name, name, requirements)
+            UI.puts "XXXXXXXXXXXXX name:" + pod_name
+        end
+
+
+        ## --- 主功能函数 ---
         def deal_dev_env_with_options(dev_env, options, pod_name, name, requirements) 
             if dev_env == nil 
                 return
@@ -321,7 +336,7 @@ class Podfile
                         if checkTagOrBranchIsEqalToHead(tag, "./")
                             UI.puts "#{pod_name.green} 检测到未做任何调整，或已手动打过Tag，直接引用远端库"
                         else
-                            if !inputNeedJumpForReson("检测到#{tag.yellow}已经存在，是否跳过beta发布并删除本地submodule(直接引用远端库)")
+                            if !inputNeedJumpForReson("#{pod_name.green} 检测到已经存在#{tag.yellow}的tag，且与当前本地节点不同，是否跳过beta发布并删除本地submodule(直接引用远端库)")
                                 raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 且与当前Commit不对应. 请确认拉到本地之后已经在podfile中手动修改tag版本号"
                             end
                         end
@@ -482,6 +497,24 @@ class Podfile
         define_method(:parse_inhibit_warnings) do |name, requirements|
             parse_pod_dev_env(name, requirements)
             old_method.bind(self).(name, requirements)
+        end
+
+        def readParrentLockFile() {
+            # 获取路径（之后外边直接配置)
+            localPath = Pathname.new(Dir.pwd).parent.parent.parent
+            lockPath ||= localPath + "Podfile.lock"
+            # 读取lockfile
+            _lockfile = Pod::Lockfile.from_file(lockPath)
+            # 读取lockfile中的依赖信息，用于之后提取使用，其中数据为 Pod::Dependency类型
+            localPodsMaps = Hash.new()
+            localpods = _lockfile.dependencies
+            localpods.each do |dep|
+                localPodsMaps[dep.root_name] = dep
+            end
+            $parentPodlockDependencyHash = localPodsMaps
+            # 读取 示例: ydASRInfo = localPodsMaps['YDASR']
+            # UI.puts ydASRInfo.inspect
+            # UI.puts "YDASR path:\n" + ydASRInfo.external_source[:path]
         end
     end
 end
