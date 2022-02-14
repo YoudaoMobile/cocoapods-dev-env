@@ -207,10 +207,10 @@ class Podfile
                 use_binary = options.delete(Pod::DevEnv::binary_key)
                 dev_env = options.delete(Pod::DevEnv::keyword)
 
-                if dev_env == nil {
+                if dev_env == nil
                     # 子库无需引用齐全所有的依赖库，从上级目录podlock中获取依赖
                     deal_options_from_parent_lockfile(options, pod_name, name, requirements) 
-                }
+                end
                 
                 # 主功能，根据dev_env标记来管理使用代码的方式
                 deal_dev_env_with_options(dev_env, options, pod_name, name, requirements)
@@ -487,7 +487,7 @@ class Podfile
                 raise Informative, "More than one spec found for '#{pod_name}':\n#{names}"
             end  
             return set  
-          end
+        end
 
       # ---- patch method ----
         # We want modify `store_pod` method, but it's hard to insert a line in the 
@@ -499,7 +499,8 @@ class Podfile
             old_method.bind(self).(name, requirements)
         end
 
-        def readParrentLockFile() {
+        # 类方法
+        def self.readParrentLockFile()
             # 获取路径（之后外边直接配置)
             localPath = Pathname.new(Dir.pwd).parent.parent.parent
             lockPath ||= localPath + "Podfile.lock"
@@ -516,6 +517,8 @@ class Podfile
             # UI.puts ydASRInfo.inspect
             # UI.puts "YDASR path:\n" + ydASRInfo.external_source[:path]
         end
+
+        readParrentLockFile()
     end
 end
 end
