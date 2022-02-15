@@ -23,6 +23,7 @@ $podFileContentPodNameHash = Hash.new
 
 $parentPodlockDependencyHash = Hash.new
 
+$parrentPath = '../../../'
 
 module Pod
 
@@ -72,6 +73,25 @@ module Pod
         UI.message "🎉 plugin cocoapods-dev-env loaded 🎉".green
     end
 class Podfile
+
+    module DSL
+        def use_parent_lock_info!(option = true)
+            UI.puts "BBBB" + $parrentPath
+            case option
+            when true, false
+                if !option
+                    $parrentPath = ''
+                    TargetDefinition.cleanParrentLockFile()
+                end
+            when Hash
+                $parrentPath = option.fetch(:path)
+                TargetDefinition.readParrentLockFile()
+            else
+              raise ArgumentError, "Got `#{option.inspect}`, should be a boolean or hash."
+            end
+        end
+    end
+
     class TargetDefinition
         attr_reader :binary_repo_url
         attr_reader :binary_source
@@ -540,14 +560,19 @@ class Podfile
             old_method.bind(self).(name, requirements)
         end
 
+        def self.cleanParrentLockFile() end
+            $parentPodlockDependencyHash = Hash.new
+        end
+
         # 类方法
         def self.readParrentLockFile()
             # 获取路径（之后外边直接配置)
-            localPath = Pathname.new(Dir.pwd).parent.parent.parent
+            localPath = Pathname.new(Dir.pwd + "/" + $parrentPath)
             lockPath ||= localPath + "Podfile.lock"
             # 读取lockfile
             _lockfile = Pod::Lockfile.from_file(lockPath)
             if _lockfile == nil
+                UI.message "dev_env, 读取父库的lockfile找不到对应路径的lock文件:" + lockPath.inspect
                 return
             end
             # 读取lockfile中的依赖信息，用于之后提取使用，其中数据为 Pod::Dependency类型
@@ -559,7 +584,7 @@ class Podfile
                     next
                 end
                 if dep.local?
-                    dep.external_source[:path] = '../../../' + dep.external_source[:path]
+                    dep.external_source[:path] = $parrentPath + dep.external_source[:path]
                 end
                 # 测试代码 UI.puts "测试获取父项目podlock里的pod依赖列表: " + dep.inspect
                 localPodsMaps[dep.root_name] = dep
