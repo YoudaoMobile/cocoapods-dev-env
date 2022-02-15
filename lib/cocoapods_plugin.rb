@@ -19,9 +19,49 @@ end
 $processedPodsState = Hash.new
 $processedPodsOptions = Hash.new
 
+$podFileContentPodNameHash = Hash.new
+
 $parentPodlockDependencyHash = Hash.new
 
+
 module Pod
+
+    class Resolver
+
+        def search_for(dependency)
+            UI.puts "fake search_for" + dependency.inspect
+            if $podFileContentPodNameHash.has_key?(dependency.root_name)
+                # 双重保证已经存在在pofile里的不再重复下载覆盖成父项目的配置
+                UI.message "parrent extenal source has downloaded"
+            else
+                parentPodInfo = $parentPodlockDependencyHash[dependency.root_name]
+                if parentPodInfo != nil
+                    dependency.external_source = parentPodInfo.external_source
+                    #dependency.external_source = Hash[:path => '../../ZYSDK']
+                    # dependency.external_source = Hash.new
+                    UI.puts "fake create_set_from_sources, changeexternal:" + dependency.inspect
+                    if sandbox.specification_path(dependency.root_name).nil?
+                        # 已经存在就不再下载
+                        source = ExternalSources.from_dependency(dependency, podfile.defined_in_file, false)
+                        source.fetch(sandbox)
+                    end
+                end
+            end
+            
+            aggregate_for_dependency(dependency).search(dependency)
+
+            @search[dependency] ||= begin
+              additional_requirements = if locked_requirement = requirement_for_locked_pod_named(dependency.name)
+                                          [locked_requirement]
+                                        else
+                                          Array(@podfile_requirements_by_root_name[dependency.root_name])
+                                        end
+      
+              specifications_for_dependency(dependency, additional_requirements).freeze
+            end
+          end
+    end
+
     class DevEnv
         def self.keyword
             :dev_env # 'dev'/'beta'/'release'
@@ -195,6 +235,7 @@ class Podfile
             options = requirements.last
             pod_name = Specification.root_name(name)
             last_options = $processedPodsOptions[pod_name]
+            $podFileContentPodNameHash[pod_name] = true
 
             if (last_options != nil)
                 UI.message "#{name.green} use last_options: #{last_options.to_s.green}"
@@ -510,6 +551,14 @@ class Podfile
             localPodsMaps = Hash.new()
             localpods = _lockfile.dependencies
             localpods.each do |dep|
+                # 数据为 Pod::Dependency类型
+                if dep.external_source == nil || localPodsMaps.has_key?(dep.root_name)
+                    next
+                end
+                if dep.local?
+                    dep.external_source[:path] = '../../../' + dep.external_source[:path]
+                end
+                # 测试代码 UI.puts "测试获取父项目podlock里的pod依赖列表: " + dep.inspect
                 localPodsMaps[dep.root_name] = dep
             end
             $parentPodlockDependencyHash = localPodsMaps
