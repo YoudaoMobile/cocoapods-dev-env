@@ -547,6 +547,9 @@ class Podfile
             lockPath ||= localPath + "Podfile.lock"
             # 读取lockfile
             _lockfile = Pod::Lockfile.from_file(lockPath)
+            if _lockfile == nil
+                return
+            end
             # 读取lockfile中的依赖信息，用于之后提取使用，其中数据为 Pod::Dependency类型
             localPodsMaps = Hash.new()
             localpods = _lockfile.dependencies
