@@ -23,6 +23,8 @@ $podFileContentPodNameHash = Hash.new
 
 $parentPodlockDependencyHash = Hash.new
 
+$processedParentPods = Hash.new # 从父项目里读出来的pod当次已经下载或者加载过了就不需要再做一遍
+
 $parrentPath = '../../../'
 
 module Pod
@@ -40,11 +42,20 @@ module Pod
                     dependency.external_source = parentPodInfo.external_source
                     #dependency.external_source = Hash[:path => '../../ZYSDK']
                     # dependency.external_source = Hash.new
-                    UI.puts "fake create_set_from_sources, changeexternal:" + dependency.inspect
-                    if sandbox.specification_path(dependency.root_name).nil?
-                        # 已经存在就不再下载
-                        source = ExternalSources.from_dependency(dependency, podfile.defined_in_file, false)
-                        source.fetch(sandbox)
+                    UI.message "fake create_set_from_sources, changeexternal:" + dependency.inspect
+                    dep = dependency
+                    if !$processedParentPods.has_key?(dependency.root_name)
+                        $processedParentPods[dependency.root_name] = true
+                        # 这里有缺陷: 已经下载过的不需要再下载了，但是不下载又进不到系统里，导致最后没有使用指定的依赖
+                        # 这个没用 podfile.pod(dependency.root_name, dependency.external_source)
+                        # if sandbox.specification_path(dep.root_name).nil? ||
+                        #     !dep.external_source[:path].nil? ||
+                        #     !sandbox.pod_dir(dep.root_name).directory? ||
+                        #     checkout_requires_update?(dep)
+                        #     # 已经存在就不再下载
+                            source = ExternalSources.from_dependency(dependency, podfile.defined_in_file, true)
+                            source.fetch(sandbox)
+                        # end
                     end
                 end
             end
@@ -75,7 +86,6 @@ module Pod
     class Podfile
         module DSL
             def use_parent_lock_info!(option = true)
-                UI.puts "BBBB" + $parrentPath
                 case option
                 when true, false
                     if !option
