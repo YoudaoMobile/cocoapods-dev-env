@@ -32,7 +32,7 @@ module Pod
     class Resolver
 
         def search_for(dependency)
-            UI.puts "fake search_for" + dependency.inspect
+            UI.message "fake search_for" + dependency.inspect
             if $podFileContentPodNameHash.has_key?(dependency.root_name)
                 # 双重保证已经存在在pofile里的不再重复下载覆盖成父项目的配置
                 UI.message "parrent extenal source has downloaded"
@@ -40,6 +40,7 @@ module Pod
                 parentPodInfo = $parentPodlockDependencyHash[dependency.root_name]
                 if parentPodInfo != nil
                     dependency.external_source = parentPodInfo.external_source
+                    dependency.specific_version = parentPodInfo.specific_version
                     #dependency.external_source = Hash[:path => '../../ZYSDK']
                     # dependency.external_source = Hash.new
                     UI.message "fake create_set_from_sources, changeexternal:" + dependency.inspect
