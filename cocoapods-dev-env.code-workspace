@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"ruby.useBundler": true, //run non-lint commands with bundle exec
+		"ruby.useLanguageServer": true, // use the internal language server (see below)
+		"ruby.lint": {
+  			"rubocop": {
+    			"useBundler": false // enable rubocop via bundler
+  			}
+		},
+		"ruby.format": "rubocop",
+		"ruby.codeCompletion": "rcodetools",
+		"ruby.intellisense": "rubyLocate",
+		"editor.formatOnPaste": true,
+		"editor.formatOnSave": true, // use rubocop for formatting
+	}
+}
