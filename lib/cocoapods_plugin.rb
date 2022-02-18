@@ -1,9 +1,10 @@
-require "file_processer"
-require "luna-binary-uploader"
+# frozen_string_literal: true
+
+require 'file_processer'
+require 'luna-binary-uploader'
 
 Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
-    podfile = installer.podfile
-    #puts installer.instance_variables
+    # puts installer.instance_variables
     # forbidden submodule not cloned
     # 会引起submodule HEAD回滚，不靠谱，先注释掉
     # `
@@ -12,7 +13,7 @@ Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
 end
 
 Pod::HooksManager.register('cocoapods-dev-env', :post_install) do |installer|
-    #puts installer.instance_variables
+    # puts installer.instance_variables
 end
 
 
@@ -28,6 +29,15 @@ $processedParentPods = Hash.new # 从父项目里读出来的pod当次已经下�
 $parrentPath = '../../../'
 
 module Pod
+    class Dependency
+      def setRequirement(requirement)
+        @requirement = requirement
+      end
+    end
+end
+
+
+module Pod
 
     class Resolver
 
@@ -40,12 +50,12 @@ module Pod
                 parentPodInfo = $parentPodlockDependencyHash[dependency.root_name]
                 if parentPodInfo != nil
                     dependency.external_source = parentPodInfo.external_source
-                    dependency.specific_version = parentPodInfo.specific_version
+                    dependency.setRequirement(parentPodInfo.requirement)
                     #dependency.external_source = Hash[:path => '../../ZYSDK']
                     # dependency.external_source = Hash.new
                     UI.message "fake create_set_from_sources, changeexternal:" + dependency.inspect
                     dep = dependency
-                    if !$processedParentPods.has_key?(dependency.root_name)
+                    if !$processedParentPods.has_key?(dependency.root_name) && dependency.external_source != nil
                         $processedParentPods[dependency.root_name] = true
                         # 这里有缺陷: 已经下载过的不需要再下载了，但是不下载又进不到系统里，导致最后没有使用指定的依赖
                         # 这个没用 podfile.pod(dependency.root_name, dependency.external_source)
@@ -278,11 +288,6 @@ module Pod
                     use_binary = options.delete(Pod::DevEnv::binary_key)
                     dev_env = options.delete(Pod::DevEnv::keyword)
 
-                    if dev_env == nil
-                        # 子库无需引用齐全所有的依赖库，从上级目录podlock中获取依赖
-                        deal_options_from_parent_lockfile(options, pod_name, name, requirements) 
-                    end
-
                     # 主功能，根据dev_env标记来管理使用代码的方式
                     deal_dev_env_with_options(dev_env, options, pod_name, name, requirements)
 
@@ -298,11 +303,6 @@ module Pod
                     end
                 end    
             end
-
-            def deal_options_from_parent_lockfile(options, pod_name, name, requirements)
-                UI.puts "XXXXXXXXXXXXX name:" + pod_name
-            end
-
 
             ## --- 主功能函数 ---
             def deal_dev_env_with_options(dev_env, options, pod_name, name, requirements) 
@@ -590,8 +590,13 @@ module Pod
                 localpods = _lockfile.dependencies
                 localpods.each do |dep|
                     # 数据为 Pod::Dependency类型
-                    if dep.external_source == nil || localPodsMaps.has_key?(dep.root_name)
+                    if (dep.external_source == nil && dep.requirement == nil) || localPodsMaps.has_key?(dep.root_name)
                         next
+                    end
+                    if dep.external_source == nil && dep.requirement.to_s == '>= 0'
+                        # dependence里可能没有版本信息（很奇怪，从version里单独取一下，写死版本限制）
+                        version = _lockfile.version(dep.root_name)
+                        dep.setRequirement(Requirement.new(version))
                     end
                     if dep.local?
                         dep.external_source[:path] = $parrentPath + dep.external_source[:path]
@@ -609,3 +614,4 @@ module Pod
         end
     end
 end
+
