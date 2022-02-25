@@ -70,8 +70,6 @@ module Pod
                     end
                 end
             end
-            
-            aggregate_for_dependency(dependency).search(dependency)
 
             @search[dependency] ||= begin
               additional_requirements = if locked_requirement = requirement_for_locked_pod_named(dependency.name)
@@ -310,6 +308,24 @@ module Pod
                     return
                 end
                 UI.message "pod #{name.green} dev-env: #{dev_env.green}"
+                if dev_env == 'parent'
+                    parentPodInfo = $parentPodlockDependencyHash[pod_name]
+                    if parentPodInfo != nil
+                        git = parentPodInfo.external_source[:git]
+                        if git != nil
+                            options[:git] = git
+                        end
+                        tag = parentPodInfo.external_source[:tag]
+                        if tag != nil
+                            options[:tag] = tag
+                        end
+                        # dependency.setRequirement(parentPodInfo.requirement
+                    end
+                    return
+                end
+            
+
+
                 git = options.delete(:git)
                 branch = options.delete(:branch)
                 tag = options.delete(:tag)
