@@ -322,6 +322,26 @@ module Pod
                         # dependency.setRequirement(parentPodInfo.requirement
                     end
                     return
+                elsif options[:git] == nil
+                    podfilePath = $parrentPath + '/Podfile'
+                    temp = `grep #{pod_name} #{podfilePath} | grep ':dev_env'`
+                    git = /(:git.*?').*?(?=')/.match(temp)[0]
+                    git = git.gsub(/:git.*?'/, '')
+                    branch = /(:branch.*?').*?(?=')/.match(temp)[0]
+                    branch = branch.gsub(/:branch.*?'/, '')
+                    tag = /(:tag.*?').*?(?=')/.match(temp)[0]
+                    tag = tag.gsub(/:tag.*?'/, '')
+                    # path = /(:path.*?').*?(?=')/.match(temp)[0]
+                    # path = path.gsub(/:path.*?'/, '')
+                    options[:git] = git
+                    options[:branch] = branch
+                    options[:tag] = tag
+                    # options[:path] = path
+                    #temp = temp[pre.length, temp.length - pre.length]
+                    #temp = temp.gsub('beta', 'dev')
+                    UI.puts "XXXXXXXXXXXX".red + git
+                    #val = eval temp
+                    #UI.puts = val.inspect
                 end
             
 
