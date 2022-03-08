@@ -543,6 +543,8 @@ module Pod
                 else
                     if options[:source] == nil
                         begin
+                            # 二进制开启后再关闭，由于版本号一致，缓存不会自动切回原来的source，这里是处理这个问题
+                            # 目前看拖慢速度，可能需要想办法去掉
                             sources = find_pod_repos(pod_name).sources.select{|item| item.url.downcase != binary_repo_url.downcase } if options.empty?
                             if sources != nil
                                 if sources.length >= 2
