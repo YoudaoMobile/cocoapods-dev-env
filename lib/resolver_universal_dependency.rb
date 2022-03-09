@@ -6,15 +6,15 @@ $processedParentPods = Hash.new # 从父项目里读出来的pod当次已经下�
 $parrentPath = '../../../'
 
 module Pod
-
-    module Pod
-        # Dependency扩展，通过setRequirement接口暴露内部变量的set方法
-        class Dependency
-          def setRequirement(requirement)
-            @requirement = requirement
-          end
-        end
+    # Dependency扩展，通过setRequirement接口暴露内部变量的set方法
+    class Dependency
+      def setRequirement(requirement)
+        @requirement = requirement
+      end
     end
+end
+
+module Pod
 
     # 在这个里将父Podfile的依赖信息同步到子库里
     class Resolver
@@ -62,9 +62,7 @@ module Pod
     end
 
     class Podfile
-        # 在这里根据默认路径读取父Podfile里的信息
-        readParrentLockFile()
-
+        # 第一次读取在结尾的位置，因为需要先定义函数才能调用
         module DSL
             # 在这里根据用户配置*重新*读取父Podfile里的信息
             def use_parent_lock_info!(option = true)
@@ -72,11 +70,11 @@ module Pod
                 when true, false
                     if !option
                         $parrentPath = ''
-                        TargetDefinition.cleanParrentLockFile()
+                        Podfile.cleanParrentLockFile()
                     end
                 when Hash
                     $parrentPath = option.fetch(:path)
-                    TargetDefinition.readParrentLockFile()
+                    Podfile.readParrentLockFile()
                 else
                   raise ArgumentError, "Got `#{option.inspect}`, should be a boolean or hash."
                 end
@@ -93,7 +91,7 @@ module Pod
             localPath = Pathname.new(Dir.pwd + "/" + $parrentPath)
             lockPath ||= localPath + "Podfile.lock"
             # 读取lockfile
-            _lockfile = Pod::Lockfile.from_file(lockPath)
+            _lockfile = Lockfile.from_file(lockPath)
             if _lockfile == nil
                 UI.message "dev_env, 读取父库的lockfile找不到对应路径的lock文件:" + lockPath.inspect
                 return
@@ -122,5 +120,8 @@ module Pod
             # UI.puts ydASRInfo.inspect
             # UI.puts "YDASR path:\n" + ydASRInfo.external_source[:path]
         end
+
+        # 在这里根据默认路径读取父Podfile里的信息
+        Podfile.readParrentLockFile()
     end
 end
