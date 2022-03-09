@@ -24,14 +24,6 @@ $processedPodsOptions = Hash.new
 $podFileContentPodNameHash = Hash.new
 
 
-module Pod
-    class Dependency
-      def setRequirement(requirement)
-        @requirement = requirement
-      end
-    end
-end
-
 
 module Pod
 
@@ -45,22 +37,6 @@ module Pod
         UI.message "🎉 plugin cocoapods-dev-env loaded 🎉".green
     end
     class Podfile
-        module DSL
-            def use_parent_lock_info!(option = true)
-                case option
-                when true, false
-                    if !option
-                        $parrentPath = ''
-                        TargetDefinition.cleanParrentLockFile()
-                    end
-                when Hash
-                    $parrentPath = option.fetch(:path)
-                    TargetDefinition.readParrentLockFile()
-                else
-                  raise ArgumentError, "Got `#{option.inspect}`, should be a boolean or hash."
-                end
-            end
-        end
 
         class TargetDefinition
             attr_reader :binary_repo_url
@@ -560,47 +536,6 @@ module Pod
                 old_method.bind(self).(name, requirements)
             end
 
-            def self.cleanParrentLockFile()
-                $parentPodlockDependencyHash = Hash.new
-            end
-
-            # 类方法
-            def self.readParrentLockFile()
-                # 获取路径（之后外边直接配置)
-                localPath = Pathname.new(Dir.pwd + "/" + $parrentPath)
-                lockPath ||= localPath + "Podfile.lock"
-                # 读取lockfile
-                _lockfile = Pod::Lockfile.from_file(lockPath)
-                if _lockfile == nil
-                    UI.message "dev_env, 读取父库的lockfile找不到对应路径的lock文件:" + lockPath.inspect
-                    return
-                end
-                # 读取lockfile中的依赖信息，用于之后提取使用，其中数据为 Pod::Dependency类型
-                localPodsMaps = Hash.new()
-                localpods = _lockfile.dependencies
-                localpods.each do |dep|
-                    # 数据为 Pod::Dependency类型
-                    if (dep.external_source == nil && dep.requirement == nil) || localPodsMaps.has_key?(dep.root_name)
-                        next
-                    end
-                    if dep.external_source == nil && dep.requirement.to_s == '>= 0'
-                        # dependence里可能没有版本信息（很奇怪，从version里单独取一下，写死版本限制）
-                        version = _lockfile.version(dep.root_name)
-                        dep.setRequirement(Requirement.new(version))
-                    end
-                    if dep.local?
-                        dep.external_source[:path] = $parrentPath + dep.external_source[:path]
-                    end
-                    # 测试代码 UI.puts "测试获取父项目podlock里的pod依赖列表: " + dep.inspect
-                    localPodsMaps[dep.root_name] = dep
-                end
-                $parentPodlockDependencyHash = localPodsMaps
-                # 读取 示例: ydASRInfo = localPodsMaps['YDASR']
-                # UI.puts ydASRInfo.inspect
-                # UI.puts "YDASR path:\n" + ydASRInfo.external_source[:path]
-            end
-
-            readParrentLockFile()
         end
     end
 end
