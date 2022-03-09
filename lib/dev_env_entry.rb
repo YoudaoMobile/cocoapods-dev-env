@@ -3,6 +3,7 @@
 require 'cocoapods'
 require 'file_processer'
 require 'luna-binary-uploader'
+require 'dev_env_utils'
 
 Pod::HooksManager.register('cocoapods-dev-env', :pre_install) do |installer|
     # puts installer.instance_variables
@@ -41,111 +42,6 @@ module Pod
         class TargetDefinition
             attr_reader :binary_repo_url
             attr_reader :binary_source
-
-            def searchAndOpenLocalExample(path)
-                _currentDir = Dir.pwd
-                Dir.chdir(path)
-                Dir.chdir("Example")
-                `pod install`
-                projPaths = Dir::glob("*.xcworkspace")
-                if projPaths.count > 0
-                    `open -a Terminal ./`
-                    `open #{projPaths[0]}`
-                end
-                Dir.chdir(_currentDir)
-            end
-
-            def checkAndRemoveSubmodule(path)
-                _currentDir = Dir.pwd
-                Dir.chdir(path)
-                output = `git status -s`
-                puts output
-                if output.length == 0
-                    output = `git status`
-                    if output.include?("push")
-                        raise "submodule #{path} 移除失败，有推送的修改"
-                    end
-                else
-                    raise "submodule #{path} 移除失败，有未提交的修改"
-                end
-                Dir.chdir(_currentDir)
-                `
-                git submodule deinit #{path}
-                rm -rf #{path}
-                git rm #{path}
-                `
-            end
-
-            def checkTagIsEqualToHead(tag, path)
-                _currentDir = Dir.pwd
-                Dir.chdir(path)
-                result = `git describe --abbrev=4 HEAD`
-                Dir.chdir(_currentDir)
-                if result.include?(tag)
-                    return true
-                else
-                    return checkTagOrBranchIsEqalToHead(tag, path)
-                end
-            end
-
-            # 这个函数有问题有时候拿不到相同的commit id
-            def checkTagOrBranchIsEqalToHead(branchOrTag, path)
-                _currentDir = Dir.pwd
-                Dir.chdir(path)
-                headCommitID = `git rev-parse HEAD`
-                tagCommitID = `git rev-parse #{branchOrTag}`
-                UI.puts "#{`pwd`}  headCommitID:#{headCommitID} \n #{branchOrTag}ComitID:#{tagCommitID}"
-                Dir.chdir(_currentDir)
-                return (headCommitID.length > 0 && headCommitID == tagCommitID)
-            end
-
-            def checkGitStatusAndPush(pod_name)
-                output = `git status -s`
-                puts output
-                if output.length == 0
-                    output = `git status`
-                    if output.include?("push")
-                        ret = system("git push")
-                        if ret != true
-                            raise "💔 #{pod_name.yellow} push 失败"
-                        end
-                    end
-                else
-                    raise "💔 #{pod_name.yellow} 有未提交的数据"
-                end
-            end
-
-            def checkRemoteTagExist(tag)
-                `git push --tags`
-                ret = system("git ls-remote --exit-code origin refs/tags/#{tag}")
-                return ret
-            end
-
-            def addGitTagAndPush(tag, pod_name)
-                ret = system("git tag #{tag}")
-                if ret == true
-                    ret = system("git push origin #{tag}")
-                    if ret != true
-                        raise "💔 #{pod_name.yellow} push tag 失败"
-                    end
-                end
-                return ret
-            end
-
-            def inputNeedJumpForReson(str)
-                if ARGV.include? '--silent'
-                    return false
-                end
-
-                puts str.green
-                puts '是(Y), 任意其他输入或直接回车跳过'.green
-                input = STDIN.gets
-                if input[0,1] == "Y"
-                    return true
-                else
-                    return false
-                end
-            end
 
             def getReposStrForLint()
                 if podfile.sources.size == 0
@@ -338,15 +234,15 @@ module Pod
                         end
                         Dir.chdir(_currentDir)
 
-                        # if inputNeedJumpForReson("本地库#{pod_name} 开发模式加载完成，是否自动打开Example工程")
-                        #     searchAndOpenLocalExample(path)
+                        # if DevEnvUtils.inputNeedJumpForReson("本地库#{pod_name} 开发模式加载完成，是否自动打开Example工程")
+                        #     DevEnvUtils.searchAndOpenLocalExample(path)
                         # end
-                        if !checkTagIsEqualToHead(tag, path) && !checkTagIsEqualToHead("#{tag}_beta", path)
+                        if !DevEnvUtils.checkTagIsEqualToHead(tag, path) && !DevEnvUtils.checkTagIsEqualToHead("#{tag}_beta", path)
                             raise "💔 #{pod_name.yellow} branch:#{branch.yellow} 与 tag:#{tag.yellow}[_beta] 内容不同步，请自行确认所用分支和tag后重新执行 pod install"
                         end
                     else
-                        # if inputNeedJumpForReson("本地库#{pod_name} 处于开发模式，是否自动打开Example工程")
-                        #     searchAndOpenLocalExample(path)
+                        # if DevEnvUtils.inputNeedJumpForReson("本地库#{pod_name} 处于开发模式，是否自动打开Example工程")
+                        #     DevEnvUtils.searchAndOpenLocalExample(path)
                         # end
                     end
                     options[:path] = path
@@ -364,25 +260,25 @@ module Pod
                         _currentDir = Dir.pwd
                         Dir.chdir(path)
                         # 已经进入到podspec的文件夹中了
-                        checkGitStatusAndPush(pod_name) # push一下
-                        ret = checkRemoteTagExist(tag)
+                        DevEnvUtils.checkGitStatusAndPush(pod_name) # push一下
+                        ret = DevEnvUtils.checkRemoteTagExist(tag)
                         if ret == true
                             # tag已经存在，要么没改动，要么已经手动打过tag，要么是需要引用老版本tag的代码
-                            if checkTagOrBranchIsEqalToHead(tag, "./")
+                            if DevEnvUtils.checkTagOrBranchIsEqalToHead(tag, "./")
                                 UI.puts "#{pod_name.green} 检测到未做任何调整，或已手动打过Tag，直接引用远端库"
                             else
-                                if !inputNeedJumpForReson("#{pod_name.green} 检测到已经存在#{tag.yellow}的tag，且与当前本地节点不同，是否跳过beta发布并删除本地submodule(直接引用远端库)")
+                                if !DevEnvUtils.inputNeedJumpForReson("#{pod_name.green} 检测到已经存在#{tag.yellow}的tag，且与当前本地节点不同，是否跳过beta发布并删除本地submodule(直接引用远端库)")
                                     raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 且与当前Commit不对应. 请确认拉到本地之后已经在podfile中手动修改tag版本号"
                                 end
                             end
                         else
                             # tag不存在，
-                            changeVersionInCocoapods(pod_name, originTag)
-                            checkGitStatusAndPush(pod_name) # 再push一下
-                            addGitTagAndPush(tag, pod_name)    
+                            DevEnvUtils.changeVersionInCocoapods(pod_name, originTag)
+                            DevEnvUtils.checkGitStatusAndPush(pod_name) # 再push一下
+                            DevEnvUtils.addGitTagAndPush(tag, pod_name)    
                         end
                         Dir.chdir(_currentDir)
-                        checkAndRemoveSubmodule(path)
+                        DevEnvUtils.checkAndRemoveSubmodule(path)
                     end
                     options[:git] = git
                     options[:tag] = tag
@@ -404,12 +300,12 @@ module Pod
                         if ret != true
                             raise "💔 #{pod_name.yellow} lint 失败"
                         end
-                        checkGitStatusAndPush(pod_name)
-                        changeVersionInCocoapods(pod_name, tag)
-                        checkGitStatusAndPush(pod_name)
-                        ret = addGitTagAndPush(tag, pod_name)
+                        DevEnvUtils.checkGitStatusAndPush(pod_name)
+                        DevEnvUtils.changeVersionInCocoapods(pod_name, tag)
+                        DevEnvUtils.checkGitStatusAndPush(pod_name)
+                        ret = DevEnvUtils.addGitTagAndPush(tag, pod_name)
                         if ret == false
-                            if checkTagOrBranchIsEqalToHead(tag, "./")
+                            if DevEnvUtils.checkTagOrBranchIsEqalToHead(tag, "./")
                                 UI.puts "#{pod_name.green} 已经打过tag".yellow
                             else
                                 raise "💔 #{pod_name.yellow} tag:#{tag.yellow} 已存在, 请确认已经手动修改tag版本号"
@@ -426,7 +322,7 @@ module Pod
                         ## 到最后统一执行，判断如果当次release过
                         `pod repo update`
                         Dir.chdir(_currentDir)
-                        checkAndRemoveSubmodule(path)
+                        DevEnvUtils.checkAndRemoveSubmodule(path)
                     end
                     if requirements.length < 2
                         requirements.insert(0, "#{get_pure_version(tag)}")
