@@ -106,4 +106,60 @@ class DevEnvUtils
             return false
         end
     end
+
+    def changeVersionInCocoapods(name, newVersion)
+        if (newVersion == nil)
+            UI.puts "💔 切换版本号的版本现在为空，无法设置版本号".yellow
+            return
+        end
+        newVersion = get_pure_version(newVersion)
+        specName = name + ".podspec"
+        FileProcesserManager.new(specName, 
+            [
+                FileProcesser.new(-> (fileContent) {
+                    return fileContent.gsub(/(\.version *= *')(.*')/, "\\1" + newVersion + "'")
+                })
+        ]).process()
+        `git add #{specName}
+         git commit -m "Mod: 修改版本号为:#{newVersion} by cocoapods_dev_env plugin"`
+    end
+end
+
+
+class Podfile
+
+    class TargetDefinition
+
+        def getReposStrForLint()
+            if podfile.sources.size == 0
+                return ""
+            end
+            str = " --sources="
+            podfile.sources.each do |source|
+                str += source
+                str += ","
+            end
+            UI.puts str
+            return str
+        end
+
+        def getUserRepoAddress()
+            if podfile.sources.size == 0
+                raise "💔 发布release必须配置仓库的地址, e.g.: source 'https://github.com/CocoaPods/Specs.git'"
+            end
+            index = nil
+            begin
+                UI.puts  "\n\n⌨️  请输入要发布到的cocoapods仓库序号, 按回车确认: ".yellow
+                num = 1
+                podfile.sources.each do |source|
+                    UI.puts "#{num.to_s.yellow}. #{source.green}"
+                    num += 1
+                end
+                index = STDIN.gets.to_i - 1
+            end until (index >= 0 && index < podfile.sources.size)
+            source = podfile.sources[index]
+            UI.puts "#{"选择了发布到: ".yellow}. #{source.green}(#{index + 1})"
+            return source
+        end
+    end
 end
