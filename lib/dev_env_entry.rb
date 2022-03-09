@@ -327,7 +327,12 @@ module Pod
                             if sources != nil
                                 if sources.length >= 2
                                     UI.puts "#{pod_name.green} 有多个source #{sources}".yellow
-                                    source_url = sources.detect{|item| item.url.downcase != Pod::TrunkSource::TRUNK_REPO_URL.downcase && item.url.downcase != "https://github.com/CocoaPods/Specs.git".downcase}.url
+                                    other_source = sources.detect{|item| item.url.downcase != Pod::TrunkSource::TRUNK_REPO_URL.downcase && item.url.downcase != "https://github.com/CocoaPods/Specs.git".downcase}
+                                    if other_source != nil
+                                        source_url = other_source.url
+                                    else
+                                        source_url = sources.first.url
+                                    end
                                 else
                                     source_url = sources.first.url
                                 end
