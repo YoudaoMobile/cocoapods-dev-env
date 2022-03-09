@@ -309,6 +309,9 @@ module Pod
 
                         end
                     else
+                        ## TODO:: 这里不适合处理，在这里处理的时候还不知道最终的版本号，
+                        ## 无法拿到准确的版本，就不能确定二进制库里是否有对应的framework
+                        ## 或者在这边预处理后，在后边的reslove的过程中找不到时再拯救一下？？
                         options.delete(:git)
                         options.delete(:path)
                         options.delete(:tag)
