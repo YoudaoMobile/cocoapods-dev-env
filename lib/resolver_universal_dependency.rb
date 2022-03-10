@@ -108,6 +108,7 @@ module Pod
                     # dependence里可能没有版本信息（很奇怪，从version里单独取一下，写死版本限制）
                     version = _lockfile.version(dep.root_name)
                     dep.setRequirement(Requirement.new(version))
+                    dep.podspec_repo = _lockfile.spec_repo(dep.root_name)
                 end
                 if dep.local?
                     dep.external_source[:path] = $parrentPath + dep.external_source[:path]

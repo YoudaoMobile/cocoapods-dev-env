@@ -86,14 +86,21 @@ module Pod
                 if dev_env == 'parent'
                     parentPodInfo = $parentPodlockDependencyHash[pod_name]
                     if parentPodInfo != nil
-                        git = parentPodInfo.external_source[:git]
-                        if git != nil
-                            options[:git] = git
+                        if parentPodInfo.external_source != nil
+                            git = parentPodInfo.external_source[:git]
+                            if git != nil
+                                options[:git] = git
+                            end
+                            tag = parentPodInfo.external_source[:tag]
+                            if tag != nil
+                                options[:tag] = tag
+                            end
+                        else
+                            UI.puts 'XXXXXXXXXXXXXXXX123' + parentPodInfo.requirement.to_s()
+                            requirements.insert(0, parentPodInfo.requirement.to_s)
+                            options[:source] = parentPodInfo.podspec_repo
                         end
-                        tag = parentPodInfo.external_source[:tag]
-                        if tag != nil
-                            options[:tag] = tag
-                        end
+                        
                         # dependency.setRequirement(parentPodInfo.requirement
                     end
                     return
@@ -320,6 +327,7 @@ module Pod
 
                 else
                     if options[:source] == nil
+                        UI.puts "❤❤❤❤检查source, pod '#{pod_name}'"
                         begin
                             # 二进制开启后再关闭，由于版本号一致，缓存不会自动切回原来的source，这里是处理这个问题
                             # 目前看拖慢速度，可能需要想办法去掉
