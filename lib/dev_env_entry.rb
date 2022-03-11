@@ -24,6 +24,7 @@ $processedPodsOptions = Hash.new
 
 $podFileContentPodNameHash = Hash.new
 
+$devEnvUseBinaryHash = Hash.new
 
 
 module Pod
@@ -304,6 +305,7 @@ module Pod
                                     options.delete(:tag)
                                     options[:source] = binary_repo_url
                                     requirements.insert(0, "#{version}")
+                                    UI.puts "pod '#{pod_name}使用了二进制"
                                 else
                                     UI.puts "pod '#{pod_name}' :tag => #{options[:tag]} version: #{version} 对应的版本,但是已经标记版本号#{requirements}, 不知道用哪个".red
                                 end
@@ -316,6 +318,7 @@ module Pod
 
                         end
                     else
+                        UI.puts "pod '#{pod_name}使用了二进制"
                         ## TODO:: 这里不适合处理，在这里处理的时候还不知道最终的版本号，
                         ## 无法拿到准确的版本，就不能确定二进制库里是否有对应的framework
                         ## 或者在这边预处理后，在后边的reslove的过程中找不到时再拯救一下？？
@@ -324,36 +327,8 @@ module Pod
                         options.delete(:tag)
                         options[:source] = binary_repo_url
                     end
-
-                else
-                    if options[:source] == nil
-                        UI.puts "❤❤❤❤检查source, pod '#{pod_name}'"
-                        begin
-                            # 二进制开启后再关闭，由于版本号一致，缓存不会自动切回原来的source，这里是处理这个问题
-                            # 目前看拖慢速度，可能需要想办法去掉
-                            sources = find_pod_repos(pod_name).sources.select{|item| item.url.downcase != binary_repo_url.downcase } if options.empty?
-                            if sources != nil
-                                if sources.length >= 2
-                                    UI.puts "#{pod_name.green} 有多个source #{sources}".yellow
-                                    other_source = sources.detect{|item| item.url.downcase != Pod::TrunkSource::TRUNK_REPO_URL.downcase && item.url.downcase != "https://github.com/CocoaPods/Specs.git".downcase}
-                                    if other_source != nil
-                                        source_url = other_source.url
-                                    else
-                                        source_url = sources.first.url
-                                    end
-                                else
-                                    source_url = sources.first.url
-                                end
-                            end
-                            options[:source] = source_url if source_url != nil
-                        rescue => exception
-                            UI.puts "#{pod_name} exception:#{exception}".red
-                        else
-
-                        end
-                    end
                 end
-                UI.puts "#{pod_name.green} :source=> #{options[:source].green} by cocoapods-dev-env" if options[:source] != nil
+                UI.message "#{pod_name.green} :source=> #{options[:source].green} by cocoapods-dev-env" if options[:source] != nil
                 UI.message "#{pod_name.yellow} options #{options}  by cocoapods-dev-env" if options[:source] != nil
                 UI.message "#{pod_name.yellow} requirements #{requirements}  by cocoapods-dev-env" if options[:source] != nil
             end

@@ -1,5 +1,20 @@
 require 'cocoapods'
 
+# 在这里处理二进制返回不指定源时系统不切换回原来的源的问题，效率相对比较高，不会反复进入
+module Pod
+    class Lockfile
+        old_dependencies_to_lock_pod_named = instance_method(:dependencies_to_lock_pod_named)
+        define_method(:dependencies_to_lock_pod_named) do |name|
+            locked_pod_dependency = old_dependencies_to_lock_pod_named.bind(self).call(name)
+            repoUrl = spec_repo(name)
+            if (repoUrl != nil && 
+                repoUrl.downcase == 'git@gitlab.corp.youdao.com:luna-ios-framework/ios-framework-spec-repo.git')
+                locked_pod_dependency[0].external_source = repoUrl
+            end
+            locked_pod_dependency
+        end
+    end
+end
 
 module Pod
   class Resolver
