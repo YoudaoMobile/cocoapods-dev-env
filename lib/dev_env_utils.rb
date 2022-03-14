@@ -1,6 +1,6 @@
+require 'cocoapods'
 
 class DevEnvUtils
-
 
     def self.searchAndOpenLocalExample(path)
         _currentDir = Dir.pwd
@@ -54,7 +54,7 @@ class DevEnvUtils
         Dir.chdir(path)
         headCommitID = `git rev-parse HEAD`
         tagCommitID = `git rev-parse #{branchOrTag}`
-        UI.puts "#{`pwd`}  headCommitID:#{headCommitID} \n #{branchOrTag}ComitID:#{tagCommitID}"
+        Pod::UI.puts "#{`pwd`}  headCommitID:#{headCommitID} \n #{branchOrTag}ComitID:#{tagCommitID}"
         Dir.chdir(_currentDir)
         return (headCommitID.length > 0 && headCommitID == tagCommitID)
     end
@@ -109,7 +109,7 @@ class DevEnvUtils
 
     def changeVersionInCocoapods(name, newVersion)
         if (newVersion == nil)
-            UI.puts "💔 切换版本号的版本现在为空，无法设置版本号".yellow
+            Pod::UI.puts "💔 切换版本号的版本现在为空，无法设置版本号".yellow
             return
         end
         newVersion = get_pure_version(newVersion)
@@ -139,7 +139,7 @@ class Podfile
                 str += source
                 str += ","
             end
-            UI.puts str
+            Pod::UI.puts str
             return str
         end
 
@@ -149,16 +149,16 @@ class Podfile
             end
             index = nil
             begin
-                UI.puts  "\n\n⌨️  请输入要发布到的cocoapods仓库序号, 按回车确认: ".yellow
+                Pod::UI.puts  "\n\n⌨️  请输入要发布到的cocoapods仓库序号, 按回车确认: ".yellow
                 num = 1
                 podfile.sources.each do |source|
-                    UI.puts "#{num.to_s.yellow}. #{source.green}"
+                    Pod::UI.puts "#{num.to_s.yellow}. #{source.green}"
                     num += 1
                 end
                 index = STDIN.gets.to_i - 1
             end until (index >= 0 && index < podfile.sources.size)
             source = podfile.sources[index]
-            UI.puts "#{"选择了发布到: ".yellow}. #{source.green}(#{index + 1})"
+            Pod::UI.puts "#{"选择了发布到: ".yellow}. #{source.green}(#{index + 1})"
             return source
         end
     end

@@ -305,7 +305,7 @@ module Pod
                                     options.delete(:tag)
                                     options[:source] = binary_repo_url
                                     requirements.insert(0, "#{version}")
-                                    UI.puts "pod '#{pod_name}使用了二进制"
+                                    UI.puts "pod '#{pod_name.green}' 使用了二进制"
                                 else
                                     UI.puts "pod '#{pod_name}' :tag => #{options[:tag]} version: #{version} 对应的版本,但是已经标记版本号#{requirements}, 不知道用哪个".red
                                 end
@@ -318,7 +318,7 @@ module Pod
 
                         end
                     else
-                        UI.puts "pod '#{pod_name}使用了二进制"
+                        UI.puts "pod '#{pod_name.green}使用了二进制"
                         ## TODO:: 这里不适合处理，在这里处理的时候还不知道最终的版本号，
                         ## 无法拿到准确的版本，就不能确定二进制库里是否有对应的framework
                         ## 或者在这边预处理后，在后边的reslove的过程中找不到时再拯救一下？？
