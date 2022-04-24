@@ -101,13 +101,11 @@ module Pod
                             if tag != nil
                                 options[:tag] = tag
                             end
-                        else
-                            #UI.puts 'XXXXXXXXXXXXXXXX123' + parentPodInfo.requirement.to_s()
+                        elsif parentPodInfo.podspec_repo.start_with?("http") 
+                            #UI.puts 'XXXXXXXXXXXXXXXX123' + parentPodInfo.inspect
                             requirements.insert(0, parentPodInfo.requirement.to_s)
                             options[:source] = parentPodInfo.podspec_repo
                         end
-                        
-                        # dependency.setRequirement(parentPodInfo.requirement
                     end
                     return
                 elsif options[:git] == nil
