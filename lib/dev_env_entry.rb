@@ -26,6 +26,9 @@ $podFileContentPodNameHash = Hash.new
 
 $devEnvUseBinaryHash = Hash.new
 
+# for universal dependency 子库引用父文件夹中的podFile或lock文件的相对路径
+$parrentPath = '../../../'
+
 
 module Pod
 
@@ -83,6 +86,8 @@ module Pod
                 if dev_env == nil 
                     return
                 end
+
+                defaultLocalPath = "./developing_pods/#{pod_name}"
                 UI.message "pod #{name.green} dev-env: #{dev_env.green}"
                 if dev_env == 'parent'
                     parentPodInfo = $parentPodlockDependencyHash[pod_name]
@@ -97,7 +102,7 @@ module Pod
                                 options[:tag] = tag
                             end
                         else
-                            UI.puts 'XXXXXXXXXXXXXXXX123' + parentPodInfo.requirement.to_s()
+                            #UI.puts 'XXXXXXXXXXXXXXXX123' + parentPodInfo.requirement.to_s()
                             requirements.insert(0, parentPodInfo.requirement.to_s)
                             options[:source] = parentPodInfo.podspec_repo
                         end
@@ -107,24 +112,30 @@ module Pod
                     return
                 elsif options[:git] == nil
                     podfilePath = $parrentPath + '/Podfile'
-                    temp = `grep #{pod_name} #{podfilePath} | grep ':dev_env'`
-                    git = /(:git.*?').*?(?=')/.match(temp)[0]
-                    git = git.gsub(/:git.*?'/, '')
-                    branch = /(:branch.*?').*?(?=')/.match(temp)[0]
-                    branch = branch.gsub(/:branch.*?'/, '')
-                    tag = /(:tag.*?').*?(?=')/.match(temp)[0]
-                    tag = tag.gsub(/:tag.*?'/, '')
-                    # path = /(:path.*?').*?(?=')/.match(temp)[0]
-                    # path = path.gsub(/:path.*?'/, '')
-                    options[:git] = git
-                    options[:branch] = branch
-                    options[:tag] = tag
-                    # options[:path] = path
-                    #temp = temp[pre.length, temp.length - pre.length]
-                    #temp = temp.gsub('beta', 'dev')
-                    UI.puts "XXXXXXXXXXXX".red + git
-                    #val = eval temp
-                    #UI.puts = val.inspect
+                    temp = `grep \\'#{pod_name}\\' #{podfilePath} | grep ':dev_env'`
+                    if temp != nil && temp.length > 0
+                        UI.puts temp
+                        git = /(:git.*?').*?(?=')/.match(temp)[0]
+                        git = git.gsub(/:git.*?'/, '')
+                        branch = /(:branch.*?').*?(?=')/.match(temp)[0]
+                        branch = branch.gsub(/:branch.*?'/, '')
+                        tag = /(:tag.*?').*?(?=')/.match(temp)[0]
+                        tag = tag.gsub(/:tag.*?'/, '')
+                        path = /(:path.*?').*?(?=')/.match(temp)
+                        if path != nil
+                            path = path[0]
+                            path = path.gsub(/:path.*?'/, '')
+                        end
+                        options[:git] = git
+                        options[:branch] = branch
+                        options[:tag] = tag
+                        if path != nil
+                            options[:path] = $parrentPath + path
+                        else
+                            options[:path] = $parrentPath + defaultLocalPath
+                        end
+                        UI.puts "#{pod_name.green}采用了父组件的配置，并修改开发状态为#{dev_env.green}"
+                    end
                 end
             
 
@@ -134,7 +145,7 @@ module Pod
                 tag = options.delete(:tag)
                 path = options.delete(:path)
                 if path == nil 
-                    path = "./developing_pods/#{pod_name}"
+                    path = defaultLocalPath
                 end
                 if git == nil || git.length == 0 
                     raise "💔 #{pod_name.yellow} 未定义:git => 'xxx'库地址"
@@ -238,6 +249,7 @@ module Pod
                         end
                         Dir.chdir(_currentDir)
                         DevEnvUtils.checkAndRemoveSubmodule(path)
+                        UI.puts "🍺🍺 #{pod_name.green} #{tag.green} release successfully!!"
                     end
                     options[:git] = git
                     options[:tag] = tag
@@ -284,7 +296,7 @@ module Pod
                         DevEnvUtils.checkAndRemoveSubmodule(path)
                     end
                     if requirements.length < 2
-                        requirements.insert(0, "#{get_pure_version(tag)}")
+                        requirements.insert(0, "#{DevEnvUtils.get_pure_version(tag)}")
                     end
                     UI.message "enabled #{"release".green}-mode for #{pod_name.green}"
                 else
@@ -296,7 +308,7 @@ module Pod
                 if use_binary && use_binary == true
                     if options[:tag] != nil
                         begin
-                            version = get_pure_version(options[:tag])
+                            version = DevEnvUtils.get_pure_version(options[:tag])
                             spec = binary_source.specification_path(pod_name, Version.new(version))
                             if spec 
                                 if requirements.length < 2
@@ -345,10 +357,6 @@ module Pod
                     @binary_source = Pod::Config.instance.sources_manager.all.detect{|item| item.url.downcase == binary_repo_url.downcase}
                 end
                 return @binary_source
-            end
-
-            def get_pure_version(version) 
-                return version.split.last.scan(/\d+/).join('.') 
             end
 
             def find_pod_repos(pod_name) #等同pod search

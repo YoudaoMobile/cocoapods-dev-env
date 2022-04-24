@@ -3,7 +3,6 @@ require 'dev_env_entry'
 
 $parentPodlockDependencyHash = Hash.new
 $processedParentPods = Hash.new # 从父项目里读出来的pod当次已经下载或者加载过了就不需要再做一遍
-$parrentPath = '../../../'
 
 module Pod
     # Dependency扩展，通过setRequirement接口暴露内部变量的set方法
