@@ -89,6 +89,8 @@ module Pod
 
                 defaultLocalPath = "./developing_pods/#{pod_name}"
                 UI.message "pod #{name.green} dev-env: #{dev_env.green}"
+                hasGotoParrent = false
+                curProjectDir = `pwd`
                 if dev_env == 'parent'
                     parentPodInfo = $parentPodlockDependencyHash[pod_name]
                     if parentPodInfo != nil
@@ -128,11 +130,14 @@ module Pod
                         options[:branch] = branch
                         options[:tag] = tag
                         if path != nil
-                            options[:path] = $parrentPath + path
+                            options[:path] = path
                         else
-                            options[:path] = $parrentPath + defaultLocalPath
+                            options[:path] = defaultLocalPath
                         end
                         UI.puts "#{pod_name.green}采用了父组件的配置，并修改开发状态为#{dev_env.green}"
+                        # 进入父目录，避免当前工程目录是个submodule，当在submudle中执行addsubmodule时路径会不正确
+                        Dir.chdir($parrentPath)
+                        hasGotoParrent = true
                     end
                 end
             
@@ -141,7 +146,11 @@ module Pod
                 git = options.delete(:git)
                 branch = options.delete(:branch)
                 tag = options.delete(:tag)
-                path = options.delete(:path)
+                path = options.delete(:path) # 执行命令用的path
+                realpath = path
+                if hasGotoParrent
+                    realpath = $parrentPath + path
+                end
                 if path == nil 
                     path = defaultLocalPath
                 end
@@ -175,7 +184,7 @@ module Pod
                         system(_cmd)
                         Dir.chdir(_currentDir)
                     end
-                    options[:path] = path
+                    options[:path] = realpath
                     if requirements.length >= 2
                         requirements.delete_at(0)
                     end
@@ -213,7 +222,7 @@ module Pod
                         #     DevEnvUtils.searchAndOpenLocalExample(path)
                         # end
                     end
-                    options[:path] = path
+                    options[:path] = realpath
                     if requirements.length >= 2
                         requirements.delete_at(0)
                     end
@@ -297,6 +306,9 @@ module Pod
                         requirements.insert(0, "#{DevEnvUtils.get_pure_version(tag)}")
                     end
                     UI.message "enabled #{"release".green}-mode for #{pod_name.green}"
+                    if hasGotoParrent
+                        Dir.chdir(curProjectDir)
+                    end
                 else
                     raise "💔 :dev_env 必须要设置成 dev/beta/release之一，不接受其他值"
                 end
