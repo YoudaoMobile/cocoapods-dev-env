@@ -42,7 +42,7 @@ Finally the state clean submodule will be removed automatically.
 3. When you define "dev_env" to "release", and run ```pod install``` . 
 We want to use the release version in cocoapods repo. And do many check for state, and help you to release the not released pod.  
 
-新增功能: 支持读取宿主工程的Podfile.lock文件，来获取宿主工程中的依赖，无需在单独的库的example工程中引用对应的pod
+2.2.x 新增功能: 支持读取宿主工程的Podfile.lock文件，来获取宿主工程中的依赖，无需在单独的库的example工程中引用对应的pod
         此功能默认开启, 等同于在顶部写入如下配置: use_parent_lock_info!
         关闭方法 use_parent_lock_info! false
         宿主工程路径默认为"../../../"(因为默认放到developing_pods子文件夹下，对应的库文件夹下的Example文件夹下，故需要回溯三层)
