@@ -147,13 +147,14 @@ module Pod
                 branch = options.delete(:branch)
                 tag = options.delete(:tag)
                 path = options.delete(:path) # 执行命令用的path
+                if path == nil 
+                    path = defaultLocalPath
+                end
                 realpath = path
                 if hasGotoParrent
                     realpath = $parrentPath + path
                 end
-                if path == nil 
-                    path = defaultLocalPath
-                end
+
                 if git == nil || git.length == 0 
                     raise "💔 #{pod_name.yellow} 未定义:git => 'xxx'库地址"
                 end
