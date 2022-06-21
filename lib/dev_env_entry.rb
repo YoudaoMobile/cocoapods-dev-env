@@ -89,7 +89,7 @@ module Pod
 
                 defaultLocalPath = "./developing_pods/#{pod_name}"
                 UI.message "pod #{name.green} dev-env: #{dev_env.green}"
-                hasGotoParrent = false
+                isFromSubProject = false
                 curProjectDir = `pwd`
                 if dev_env == 'parent'
                     parentPodInfo = $parentPodlockDependencyHash[pod_name]
@@ -135,9 +135,7 @@ module Pod
                             options[:path] = defaultLocalPath
                         end
                         UI.puts "#{pod_name.green}采用了父组件的配置，并修改开发状态为#{dev_env.green}"
-                        # 进入父目录，避免当前工程目录是个submodule，当在submudle中执行addsubmodule时路径会不正确
-                        Dir.chdir($parrentPath)
-                        hasGotoParrent = true
+                        isFromSubProject = true
                     end
                 end
             
@@ -151,7 +149,7 @@ module Pod
                     path = defaultLocalPath
                 end
                 realpath = path
-                if hasGotoParrent
+                if isFromSubProject
                     realpath = $parrentPath + path
                 end
 
@@ -166,6 +164,9 @@ module Pod
                 end
 
                 if dev_env == 'subtree'
+                    if isFromSubProject
+                        raise "💔 子项目不支持subtree"
+                    end
                     if !File.directory?(path)
                         _toplevelDir = `git rev-parse --show-toplevel`
                         _currentDir = `pwd`
@@ -192,12 +193,18 @@ module Pod
                     UI.message "pod #{pod_name.green} enabled #{"subtree".green}-mode 🍺"
                 elsif dev_env == 'dev'
                     # 开发模式，使用path方式引用本地的submodule git库
-                    if !File.directory?(path)
+                    if !File.directory?(realpath)
                         UI.puts "add submodule for #{pod_name.green}".yellow
+                        if isFromSubProject
+                            # 进入父目录，避免当前工程目录是个submodule，当在submudle中执行addsubmodule时路径会不正确
+                            Dir.chdir($parrentPath)
+                        end
                         _cmd = "git submodule add --force -b #{branch} #{git} #{path}"
                         UI.puts _cmd
                         system(_cmd)
-
+                        if isFromSubProject
+                            Dir.chdir(curProjectDir)
+                        end
                         _currentDir = Dir.pwd
                         Dir.chdir(path)
 
@@ -307,9 +314,6 @@ module Pod
                         requirements.insert(0, "#{DevEnvUtils.get_pure_version(tag)}")
                     end
                     UI.message "enabled #{"release".green}-mode for #{pod_name.green}"
-                    if hasGotoParrent
-                        Dir.chdir(curProjectDir)
-                    end
                 else
                     raise "💔 :dev_env 必须要设置成 dev/beta/release之一，不接受其他值"
                 end
