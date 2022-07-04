@@ -90,7 +90,6 @@ module Pod
                 defaultLocalPath = "./developing_pods/#{pod_name}"
                 UI.message "pod #{name.green} dev-env: #{dev_env.green}"
                 isFromSubProject = false
-                curProjectDir = `pwd`
                 if dev_env == 'parent'
                     parentPodInfo = $parentPodlockDependencyHash[pod_name]
                     if parentPodInfo != nil
@@ -195,6 +194,7 @@ module Pod
                     # 开发模式，使用path方式引用本地的submodule git库
                     if !File.directory?(realpath)
                         UI.puts "add submodule for #{pod_name.green}".yellow
+                        curProjectDir = `pwd`
                         if isFromSubProject
                             # 进入父目录，避免当前工程目录是个submodule，当在submudle中执行addsubmodule时路径会不正确
                             Dir.chdir($parrentPath)
