@@ -246,8 +246,8 @@ module Pod
                         Dir.chdir(path)
                         # 已经进入到podspec的文件夹中了
                         DevEnvUtils.checkGitStatusAndPush(pod_name) # push一下
-                        ret = DevEnvUtils.checkRemoteTagExist(tag)
-                        if ret == true
+                        isRemoteTagExist = DevEnvUtils.checkRemoteTagExist(tag)
+                        if isRemoteTagExist == true
                             # tag已经存在，要么没改动，要么已经手动打过tag，要么是需要引用老版本tag的代码
                             if DevEnvUtils.checkTagOrBranchIsEqalToHead(tag, "./")
                                 UI.puts "#{pod_name.green} 检测到未做任何调整，或已手动打过Tag，直接引用远端库"
@@ -258,13 +258,16 @@ module Pod
                             end
                         else
                             # tag不存在，
+                            DevEnvUtils.checkIsOnTrankBrach()
                             DevEnvUtils.changeVersionInCocoapods(pod_name, originTag)
                             DevEnvUtils.checkGitStatusAndPush(pod_name) # 再push一下
                             DevEnvUtils.addGitTagAndPush(tag, pod_name)    
                         end
                         Dir.chdir(_currentDir)
                         DevEnvUtils.checkAndRemoveSubmodule(path)
-                        UI.puts "🍺🍺 #{pod_name.green} #{tag.green} release successfully!!"
+                        if !isRemoteTagExist
+                            UI.puts "🍺🍺 #{pod_name.green} #{tag.green} release successfully!!"
+                        end
                     end
                     options[:git] = git
                     options[:tag] = tag

@@ -93,6 +93,18 @@ class DevEnvUtils
     input[0, 1] == 'Y'
   end
 
+  # 检查是否在主分支上(main / master)
+  def self.checkIsOnTrankBrach()
+    branch = `git branch --show-current`.chomp
+    isOK = (branch == 'main' || branch == 'master')
+    if !isOK
+      puts ('💔 当前分支是: '.red + branch.green + ' 没在主分支，不符合规范，是否继续发布？'.red)
+      if !inputNeedJumpForReson("")
+        raise "已取消发布, 请切换子库分支到 master / main 后重新 pod install"
+      end
+    end
+  end
+
   def self.changeVersionInCocoapods(name, newVersion)
     if newVersion.nil?
       Pod::UI.puts '💔 传入的修改目标版本号为空，无法设置版本号'.yellow
