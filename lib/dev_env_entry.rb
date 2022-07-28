@@ -102,6 +102,10 @@ module Pod
                             if tag != nil
                                 options[:tag] = tag
                             end
+                            path = parentPodInfo.external_source[:path]
+                            if path != nil
+                                options[:path] = path
+                            end
                         elsif (parentPodInfo.podspec_repo.start_with?("http") || parentPodInfo.podspec_repo.start_with?("git"))
                             #UI.puts 'XXXXXXXXXXXXXXXX123' + parentPodInfo.inspect
                             requirements.insert(0, parentPodInfo.requirement.to_s)
