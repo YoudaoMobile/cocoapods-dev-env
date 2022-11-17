@@ -78,7 +78,7 @@ edit GemFile for local path, e.g.:
 ### debug and package
 1. How to develop: put gem in your project and exec `bundle exec pod install`
 2. How to packagae: `rake build` 
-3. How to release: `rake release` or `gem push ./pkg/cocoapods-dev-env-0.2.2.gem` 
+3. How to release: `rake release` or `gem push ./pkg/cocoapods-dev-env-2.2.4.gem` 
 
 
 ## License
@@ -88,3 +88,8 @@ The gem is available as open source under the terms of the [MIT License](https:/
 ## Code of Conduct
 
 Everyone interacting in the Cocoapods::Dev::Env project’s codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/YoudaoMobile/cocoapods-dev-env/blob/master/CODE_OF_CONDUCT.md).
+
+
+## warning
+
+pod有bug，当某个库由于新引入的库依赖了更多子库的项，需要下载时，会通过根名称去寻找下载的source。比如 原本引用YDCommon/Core 通过 YDUser 又引入了 YDCommon/UI， 再次pod install时 系统判定 YDCommon的引用有变化，需要重新下载，这时不会通过podfile里定义的YDCommon/Core的源去下载，而是仅仅使用sandbox中YDCommon的版本去寻找，导致下载报错。 目前一个绕过的方法是在podfile中也定义一下YDCommon这个根的地址
